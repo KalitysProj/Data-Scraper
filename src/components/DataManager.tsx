@@ -64,7 +64,7 @@ export const DataManager: React.FC = () => {
       setCompanies(result.companies);
       setTotal(result.total);
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Erreur lors du chargement des données');
+      // En mode démonstration, pas d'erreur affichée
       setCompanies([]);
       setTotal(0);
     } finally {

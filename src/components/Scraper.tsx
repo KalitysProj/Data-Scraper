@@ -153,7 +153,8 @@ export const Scraper: React.FC = () => {
         jobId
       });
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Erreur lors du démarrage du scraping');
+      // En mode démonstration, afficher un message informatif
+      setError('Mode démonstration : Le scraping réel nécessite le backend');
     }
   };
 

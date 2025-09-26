@@ -90,11 +90,6 @@ class ApiService {
   }
 
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    // Check if backend is available first
-    if (!this.isBackendAvailable) {
-      throw new Error('Backend non disponible. Veuillez démarrer le serveur backend.');
-    }
-
     const url = `${API_BASE_URL}${endpoint}`;
     
     const headers: Record<string, string> = {
