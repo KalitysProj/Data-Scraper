@@ -161,6 +161,16 @@ class ApiService {
     throw new Error(response.error || 'Erreur lors du démarrage du scraping');
   }
 
+  async stopScraping(jobId: string): Promise<void> {
+    const response = await this.request<ApiResponse>(`/scraping/stop/${jobId}`, {
+      method: 'POST',
+    });
+
+    if (!response.success) {
+      throw new Error(response.error || 'Erreur lors de l\'arrêt du scraping');
+    }
+  }
+
   async getScrapingStatus(jobId: string): Promise<ScrapingJob> {
     const response = await this.request<ApiResponse<{ job: ScrapingJob }>>(`/scraping/status/${jobId}`);
     
