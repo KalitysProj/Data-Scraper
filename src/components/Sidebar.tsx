@@ -5,13 +5,17 @@ import {
   Database, 
   Settings, 
   Building2,
-  ChevronRight 
+  ChevronRight,
+  LogOut,
+  User
 } from 'lucide-react';
 import { ActiveView } from '../App';
+import { useAuth } from '../hooks/useAuth';
 
 interface SidebarProps {
   activeView: ActiveView;
   setActiveView: (view: ActiveView) => void;
+  onLogout: () => void;
 }
 
 const menuItems = [
@@ -21,7 +25,9 @@ const menuItems = [
   { id: 'settings' as ActiveView, label: 'Paramètres', icon: Settings },
 ];
 
-export const Sidebar: React.FC<SidebarProps> = ({ activeView, setActiveView }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ activeView, setActiveView, onLogout }) => {
+  const { user } = useAuth();
+
   return (
     <div className="fixed left-0 top-0 h-full w-64 bg-white border-r border-gray-200 z-40">
       <div className="p-6 border-b border-gray-200">
@@ -59,18 +65,50 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeView, setActiveView }) =
         })}
       </nav>
 
-      <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200">
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg border border-blue-100">
+      <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200 space-y-3">
+        {/* User Info */}
+        {user && (
+          <div className="bg-gray-50 p-3 rounded-lg">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
+                <User className="w-4 h-4 text-white" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-900 truncate">
+                  {user.firstName && user.lastName 
+                    ? `${user.firstName} ${user.lastName}`
+                    : user.email
+                  }
+                </p>
+                <p className="text-xs text-gray-500 truncate">{user.email}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Subscription Info */}
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-3 rounded-lg border border-blue-100">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-blue-900">Plan Pro</p>
-              <p className="text-xs text-blue-700">5,000 req/mois</p>
+              <p className="text-sm font-medium text-blue-900">
+                Plan {user?.subscriptionPlan || 'Free'}
+              </p>
+              <p className="text-xs text-blue-700">Données réelles</p>
             </div>
-            <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
-              <span className="text-xs font-bold text-white">75%</span>
+            <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
+              <span className="text-xs font-bold text-white">✓</span>
             </div>
           </div>
         </div>
+
+        {/* Logout Button */}
+        <button
+          onClick={onLogout}
+          className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+        >
+          <LogOut className="w-4 h-4" />
+          Se déconnecter
+        </button>
       </div>
     </div>
   );
