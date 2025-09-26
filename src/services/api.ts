@@ -149,9 +149,16 @@ class ApiService {
 
   // Scraping
   async startScraping(config: { apeCode: string; department: string; siegeOnly: boolean }): Promise<{ jobId: string }> {
-    // Simuler un scraping en mode démonstration
-    const jobId = `demo-${Date.now()}`;
-    return { jobId };
+    const response = await this.request<ApiResponse<{ jobId: string }>>('/scraping/start', {
+      method: 'POST',
+      body: JSON.stringify(config),
+    });
+    
+    if (response.success && response.data) {
+      return { jobId: response.data.jobId };
+    }
+
+    throw new Error(response.error || 'Erreur lors du démarrage du scraping');
   }
 
   async getScrapingStatus(jobId: string): Promise<ScrapingJob> {
