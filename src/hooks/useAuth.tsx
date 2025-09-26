@@ -130,12 +130,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const checkBackendConnection = async (): Promise<boolean> => {
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000);
+      
       const response = await fetch('http://localhost:3001/api/health', {
         method: 'GET',
-        signal: AbortSignal.timeout(3000)
+        signal: controller.signal
       });
+      
+      clearTimeout(timeoutId);
       return response.ok;
     } catch (error) {
+      // Silently handle connection errors - this is expected when backend is not running
       return false;
     }
   };

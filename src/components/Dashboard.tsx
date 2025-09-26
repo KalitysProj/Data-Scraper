@@ -40,11 +40,17 @@ export const Dashboard: React.FC = () => {
 
   const checkConnection = async () => {
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000);
+      
       const response = await fetch('http://localhost:3001/api/health', {
-        signal: AbortSignal.timeout(3000)
+        signal: controller.signal
       });
+      
+      clearTimeout(timeoutId);
       setConnectionStatus(response.ok ? 'connected' : 'disconnected');
     } catch (error) {
+      // Silently handle connection errors - this is expected when backend is not running
       setConnectionStatus('disconnected');
     }
   };
