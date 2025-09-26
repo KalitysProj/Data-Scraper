@@ -7,7 +7,7 @@ const logger = require('../utils/logger');
 class CompaniesController {
   async getCompanies(req, res) {
     try {
-      const userId = req.user.id;
+      const userId = req.user.id || 'demo-user';
       const {
         search = '',
         department = '',
@@ -121,7 +121,7 @@ class CompaniesController {
   async getCompanyById(req, res) {
     try {
       const { id } = req.params;
-      const userId = req.user.id;
+      const userId = req.user.id || 'demo-user';
 
       const [rows] = await pool.execute(`
         SELECT * FROM companies 
@@ -157,7 +157,7 @@ class CompaniesController {
   async deleteCompanies(req, res) {
     try {
       const { companyIds } = req.body;
-      const userId = req.user.id;
+      const userId = req.user.id || 'demo-user';
 
       if (!Array.isArray(companyIds) || companyIds.length === 0) {
         return res.status(400).json({
@@ -286,7 +286,7 @@ class CompaniesController {
 
   async getStats(req, res) {
     try {
-      const userId = req.user.id;
+      const userId = req.user.id || 'demo-user';
 
       const [totalRows] = await pool.execute(
         'SELECT COUNT(*) as total FROM companies WHERE user_id = ?',

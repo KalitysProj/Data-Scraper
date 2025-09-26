@@ -11,7 +11,7 @@ class ScrapingController {
   async startScraping(req, res) {
     try {
       const { apeCode, department, siegeOnly = true } = req.body;
-      const userId = req.user.id;
+      const userId = req.user.id || 'demo-user';
 
       // Validation
       if (!apeCode || !department) {
@@ -21,26 +21,7 @@ class ScrapingController {
         });
       }
 
-      // Vérifier les limites de l'utilisateur
-      const [userRows] = await pool.execute(
-        'SELECT api_requests_used, api_requests_limit FROM users WHERE id = ?',
-        [userId]
-      );
-
-      if (userRows.length === 0) {
-        return res.status(404).json({
-          success: false,
-          error: 'Utilisateur non trouvé'
-        });
-      }
-
-      const user = userRows[0];
-      if (user.api_requests_used >= user.api_requests_limit) {
-        return res.status(429).json({
-          success: false,
-          error: 'Limite de requêtes atteinte'
-        });
-      }
+      // Pas de vérification de limites en mode demo
 
       // Créer une tâche de scraping
       const jobId = uuidv4();
@@ -121,10 +102,7 @@ class ScrapingController {
       `, [result.totalResults, result.companies.length, jobId]);
 
       // Incrémenter le compteur de requêtes utilisateur
-      await pool.execute(
-        'UPDATE users SET api_requests_used = api_requests_used + 1 WHERE id = ?',
-        [userId]
-      );
+      // Pas d'incrémentation en mode demo
 
       logger.info(`Scraping terminé pour le job ${jobId}: ${result.companies.length} entreprises`);
 
