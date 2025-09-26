@@ -17,6 +17,10 @@ import {
 } from 'lucide-react';
 import { apiService, CompanyData } from '../services/api';
 
+const formatDate = (dateString: string) => {
+  return new Date(dateString).toLocaleDateString('fr-FR');
+};
+
 export const DataManager: React.FC = () => {
   const [companies, setCompanies] = useState<CompanyData[]>([]);
   const [total, setTotal] = useState(0);
@@ -134,22 +138,6 @@ export const DataManager: React.FC = () => {
     setPagination(prev => ({ ...prev, offset: 0 }));
   };
 
-  const formatDate = (dateString: string): string => {
-    return new Date(dateString).toLocaleDateString('fr-FR');
-  };
-
-  if (!apiService.isAuthenticated()) {
-    return (
-      <div className="p-8">
-        <div className="text-center py-12">
-          <AlertCircle className="w-16 h-16 text-amber-400 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Authentification requise</h2>
-          <p className="text-gray-600">Vous devez être connecté pour accéder aux données.</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="p-8">
       <div className="mb-8">
@@ -157,11 +145,22 @@ export const DataManager: React.FC = () => {
         <p className="text-gray-600">Consultez, filtrez et exportez vos données d'entreprises</p>
         
         {/* Connection Status */}
-        <div className="mt-4 flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-green-500" />
-          <span className="text-sm font-medium text-gray-700">
-            Base de données connectée - Données réelles
-          </span>
+        <div className={`mt-4 border rounded-lg p-4 ${
+          companies.length > 0 
+            ? 'bg-green-50 border-green-200' 
+            : 'bg-yellow-50 border-yellow-200'
+        }`}>
+          <div className="flex items-center gap-2">
+            <div className={`w-3 h-3 rounded-full ${
+              companies.length > 0 ? 'bg-green-500' : 'bg-yellow-500'
+            }`} />
+            <span className="text-sm font-medium text-gray-700">
+              {companies.length > 0 
+                ? `${total} entreprises en base de données`
+                : 'Aucune donnée - Lancez un scraping pour commencer'
+              }
+            </span>
+          </div>
         </div>
       </div>
 
@@ -304,7 +303,7 @@ export const DataManager: React.FC = () => {
             </div>
             
             {/* Clear Filters */}
-            <div className="flex justify-end">
+            <div className="flex justify-end mt-4">
               <button
                 onClick={() => {
                   setFilters({ department: '', apeCode: '', legalForm: '' });
