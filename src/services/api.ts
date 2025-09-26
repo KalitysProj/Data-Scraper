@@ -69,12 +69,7 @@ export interface ScrapingJob {
 }
 
 class ApiService {
-  private token: string | null = null;
   private backendAvailable: boolean | null = null;
-
-  constructor() {
-    this.token = localStorage.getItem('auth_token');
-  }
 
   private async checkBackendAvailability(): Promise<boolean> {
     // Si on a déjà testé, retourner le résultat en cache
@@ -126,10 +121,6 @@ class ApiService {
       ...options.headers as Record<string, string>,
     };
 
-    if (this.token) {
-      headers['Authorization'] = `Bearer ${this.token}`;
-    }
-
     try {
       const response = await fetch(url, {
         ...options,
@@ -137,11 +128,6 @@ class ApiService {
       });
 
       if (!response.ok) {
-        if (response.status === 401) {
-          this.logout();
-          throw new Error('Session expirée, veuillez vous reconnecter');
-        }
-        
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || `Erreur API: ${response.status}`);
       }
@@ -159,46 +145,6 @@ class ApiService {
       }
       throw new Error('Erreur de connexion au serveur');
     }
-  }
-
-  // Authentification
-  async login(email: string, password: string): Promise<{ token: string; user: any }> {
-    const response = await this.request<ApiResponse<{ token: string; user: any }>>('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ email, password }),
-    });
-
-    if (response.success && response.data) {
-      this.token = response.data.token;
-      localStorage.setItem('auth_token', this.token);
-      return response.data;
-    }
-
-    throw new Error(response.error || 'Erreur de connexion');
-  }
-
-  async register(userData: { email: string; password: string; firstName?: string; lastName?: string }) {
-    const response = await this.request<ApiResponse>('/auth/register', {
-      method: 'POST',
-      body: JSON.stringify(userData),
-    });
-
-    if (response.success && response.data) {
-      this.token = response.data.token;
-      localStorage.setItem('auth_token', this.token);
-      return response.data;
-    }
-
-    throw new Error(response.error || 'Erreur lors de l\'inscription');
-  }
-
-  logout() {
-    this.token = null;
-    localStorage.removeItem('auth_token');
-  }
-
-  isAuthenticated(): boolean {
-    return !!this.token;
   }
 
   // Scraping
