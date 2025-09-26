@@ -185,20 +185,8 @@ export const Scraper: React.FC = () => {
   };
 
   const canStartScraping = () => {
-    return !progress.isActive && apiService.isAuthenticated();
+    return !progress.isActive;
   };
-
-  if (!apiService.isAuthenticated()) {
-    return (
-      <div className="p-8">
-        <div className="text-center py-12">
-          <AlertCircle className="w-16 h-16 text-amber-400 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Authentification requise</h2>
-          <p className="text-gray-600">Vous devez être connecté pour utiliser le scraping.</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="p-8">

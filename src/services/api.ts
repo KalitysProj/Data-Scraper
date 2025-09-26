@@ -1,6 +1,22 @@
 // Configuration de l'API backend
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
+// Vérifier si le backend est disponible
+let isBackendAvailable = false;
+
+// Test de connexion au démarrage
+const testBackendConnection = async () => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/health`);
+    isBackendAvailable = response.ok;
+  } catch (error) {
+    isBackendAvailable = false;
+  }
+};
+
+// Tester la connexion au démarrage
+testBackendConnection();
+
 // Interface pour les réponses API
 interface ApiResponse<T = any> {
   success: boolean;

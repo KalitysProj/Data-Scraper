@@ -36,7 +36,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     // Vérifier si l'utilisateur est connecté au démarrage
     const token = localStorage.getItem('auth_token');
     if (token) {
-      // Ici on pourrait vérifier la validité du token
+      // Simuler un utilisateur connecté pour les tests
+      setUser({
+        id: 'test-user',
+        email: 'test@example.com',
+        firstName: 'Test',
+        lastName: 'User',
+        subscriptionPlan: 'pro'
+      });
       setIsLoading(false);
     } else {
       setIsLoading(false);

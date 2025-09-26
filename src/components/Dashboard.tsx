@@ -23,20 +23,25 @@ const colorMap = {
 };
 
 export const Dashboard: React.FC = () => {
-  const [stats, setStats] = useState<StatsData | null>(null);
+  const [stats, setStats] = useState<StatsData>({
+    total: 0,
+    monthly: 0,
+    byDepartment: [],
+    byApeCode: []
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'checking'>('checking');
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    loadDashboardData();
     checkConnection();
+    loadDashboardData();
   }, []);
 
   const checkConnection = async () => {
     try {
-      const result = await apiService.testConnection();
-      setConnectionStatus(result.success ? 'connected' : 'disconnected');
+      const response = await fetch('http://localhost:3001/api/health');
+      setConnectionStatus(response.ok ? 'connected' : 'disconnected');
     } catch (error) {
       setConnectionStatus('disconnected');
     }
@@ -46,10 +51,20 @@ export const Dashboard: React.FC = () => {
     try {
       setIsLoading(true);
       setError(null);
-      const statsData = await apiService.getStats();
-      setStats(statsData);
+      
+      if (connectionStatus === 'connected') {
+        const statsData = await apiService.getStats();
+        setStats(statsData);
+      }
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Erreur lors du chargement des données');
+      // Utiliser des données vides en cas d'erreur
+      setStats({
+        total: 0,
+        monthly: 0,
+        byDepartment: [],
+        byApeCode: []
+      });
     } finally {
       setIsLoading(false);
     }
@@ -60,8 +75,6 @@ export const Dashboard: React.FC = () => {
   };
 
   const getStatsCards = () => {
-    if (!stats) return [];
-
     return [
       {
         label: 'Total Entreprises',

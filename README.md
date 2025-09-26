@@ -152,4 +152,26 @@ Service de Scraping (Puppeteer/Playwright)
 
 ---
 
-**Note Importante** : L'interface actuelle utilise des données de démonstration. Pour un fonctionnement complet, le backend de scraping et la base de données doivent être implémentés en respectant les conditions d'utilisation du site INPI.
+## 🚀 Démarrage Rapide
+
+### 1. Frontend
+```bash
+npm install
+npm run dev
+```
+
+### 2. Backend (Optionnel - pour données réelles)
+```bash
+cd backend
+npm install
+cp .env.example .env
+# Configurer MySQL dans .env
+npm run setup-db
+npm run dev
+```
+
+### 3. Utilisation
+- **Sans backend** : Interface de démonstration
+- **Avec backend** : Données réelles + scraping INPI
+
+**Note** : L'application fonctionne en mode démonstration par défaut. Pour utiliser le scraping réel, démarrez le backend et configurez MySQL.
