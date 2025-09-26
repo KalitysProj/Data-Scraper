@@ -74,6 +74,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = async (email: string, password: string) => {
     try {
+      // Check if we're in demo mode (no backend)
+      const isDemoMode = !await checkBackendConnection();
+      if (isDemoMode) {
+        // Demo login - accept any credentials
+        const demoUser = {
+          id: 'demo-user',
+          email: email,
+          firstName: 'Demo',
+          lastName: 'User',
+          subscriptionPlan: 'free'
+        };
+        setUser(demoUser);
+        localStorage.setItem('demo_mode', 'true');
+        return;
+      }
+
       const { user: userData } = await apiService.login(email, password);
       setUser(userData);
     } catch (error) {
@@ -83,6 +99,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const register = async (userData: { email: string; password: string; firstName?: string; lastName?: string }) => {
     try {
+      // Check if we're in demo mode (no backend)
+      const isDemoMode = !await checkBackendConnection();
+      if (isDemoMode) {
+        // Demo registration
+        const demoUser = {
+          id: 'demo-user',
+          email: userData.email,
+          firstName: userData.firstName || 'Demo',
+          lastName: userData.lastName || 'User',
+          subscriptionPlan: 'free'
+        };
+        setUser(demoUser);
+        localStorage.setItem('demo_mode', 'true');
+        return;
+      }
+
       const { user: newUser } = await apiService.register(userData);
       setUser(newUser);
     } catch (error) {
@@ -93,6 +125,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const logout = () => {
     apiService.logout();
     setUser(null);
+    localStorage.removeItem('demo_mode');
+  };
+
+  const checkBackendConnection = async (): Promise<boolean> => {
+    try {
+      const response = await fetch('http://localhost:3001/api/health', {
+        method: 'GET',
+        signal: AbortSignal.timeout(3000)
+      });
+      return response.ok;
+    } catch (error) {
+      return false;
+    }
   };
 
   const value: AuthContextType = {

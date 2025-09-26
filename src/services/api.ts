@@ -70,12 +70,31 @@ export interface ScrapingJob {
 
 class ApiService {
   private token: string | null = null;
+  private isBackendAvailable: boolean = false;
 
   constructor() {
     this.token = localStorage.getItem('auth_token');
+    this.checkBackendAvailability();
+  }
+
+  private async checkBackendAvailability(): Promise<void> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/health`, {
+        method: 'GET',
+        signal: AbortSignal.timeout(5000) // 5 second timeout
+      });
+      this.isBackendAvailable = response.ok;
+    } catch (error) {
+      this.isBackendAvailable = false;
+    }
   }
 
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+    // Check if backend is available first
+    if (!this.isBackendAvailable) {
+      throw new Error('Backend non disponible. Veuillez démarrer le serveur backend.');
+    }
+
     const url = `${API_BASE_URL}${endpoint}`;
     
     const headers: Record<string, string> = {

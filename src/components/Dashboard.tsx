@@ -40,7 +40,9 @@ export const Dashboard: React.FC = () => {
 
   const checkConnection = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/health');
+      const response = await fetch('http://localhost:3001/api/health', {
+        signal: AbortSignal.timeout(3000)
+      });
       setConnectionStatus(response.ok ? 'connected' : 'disconnected');
     } catch (error) {
       setConnectionStatus('disconnected');
@@ -52,12 +54,27 @@ export const Dashboard: React.FC = () => {
       setIsLoading(true);
       setError(null);
       
-      if (connectionStatus === 'connected') {
+      // Check if we're in demo mode
+      const isDemoMode = localStorage.getItem('demo_mode') === 'true';
+      
+      if (connectionStatus === 'connected' && !isDemoMode) {
         const statsData = await apiService.getStats();
         setStats(statsData);
+      } else {
+        // Use demo data
+        setStats({
+          total: 0,
+          monthly: 0,
+          byDepartment: [],
+          byApeCode: []
+        });
       }
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Erreur lors du chargement des données');
+      // Don't show error in demo mode
+      const isDemoMode = localStorage.getItem('demo_mode') === 'true';
+      if (!isDemoMode) {
+        setError(error instanceof Error ? error.message : 'Erreur lors du chargement des données');
+      }
       // Utiliser des données vides en cas d'erreur
       setStats({
         total: 0,
