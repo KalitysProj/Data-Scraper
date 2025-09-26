@@ -1,4 +1,4 @@
-import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
+import React, { useState, useEffect, createContext, useContext, ReactNode } from 'react';
 import { apiService } from '../services/api';
 
 interface User {
@@ -28,26 +28,48 @@ export const useAuth = () => {
   return context;
 };
 
-export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+interface AuthProviderProps {
+  children: ReactNode;
+}
+
+export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     // Vérifier si l'utilisateur est connecté au démarrage
-    const token = localStorage.getItem('auth_token');
-    if (token) {
-      // Simuler un utilisateur connecté pour les tests
-      setUser({
-        id: 'test-user',
-        email: 'test@example.com',
-        firstName: 'Test',
-        lastName: 'User',
-        subscriptionPlan: 'pro'
-      });
+    const checkAuthStatus = async () => {
+      const token = localStorage.getItem('auth_token');
+      if (token) {
+        try {
+          // Tenter de récupérer le profil utilisateur
+          const response = await fetch('http://localhost:3001/api/auth/profile', {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            if (data.success && data.user) {
+              setUser(data.user);
+            } else {
+              // Token invalide, le supprimer
+              localStorage.removeItem('auth_token');
+            }
+          } else {
+            // Token invalide, le supprimer
+            localStorage.removeItem('auth_token');
+          }
+        } catch (error) {
+          // Erreur de connexion, garder le token mais pas d'utilisateur
+          console.warn('Impossible de vérifier l\'authentification:', error);
+        }
+      }
       setIsLoading(false);
-    } else {
-      setIsLoading(false);
-    }
+    };
+
+    checkAuthStatus();
   }, []);
 
   const login = async (email: string, password: string) => {
@@ -73,7 +95,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setUser(null);
   };
 
-  const value = {
+  const value: AuthContextType = {
     user,
     isAuthenticated: !!user,
     isLoading,
