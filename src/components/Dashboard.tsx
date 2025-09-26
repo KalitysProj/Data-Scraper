@@ -42,23 +42,27 @@ export const Dashboard: React.FC = () => {
       setIsLoading(true);
       setError(null);
       
-      // Try to load real data first
       try {
         const statsData = await apiService.getStats();
         setStats(statsData);
         setConnectionStatus('connected');
       } catch (backendError) {
-        // If backend fails, use empty data and set disconnected status
-        setStats({
-          total: 0,
-          monthly: 0,
-          byDepartment: [],
-          byApeCode: []
-        });
-        setConnectionStatus('disconnected');
+        // Si c'est une erreur de backend non disponible, utiliser des données vides
+        if (backendError instanceof Error && backendError.message.includes('Mode démonstration')) {
+          setStats({
+            total: 0,
+            monthly: 0,
+            byDepartment: [],
+            byApeCode: []
+          });
+          setConnectionStatus('disconnected');
+        } else {
+          // Pour les autres erreurs, les afficher
+          setError(backendError instanceof Error ? backendError.message : 'Erreur de chargement');
+          setConnectionStatus('disconnected');
+        }
       }
     } catch (error) {
-      // Use empty data on any error
       setStats({
         total: 0,
         monthly: 0,
@@ -66,6 +70,7 @@ export const Dashboard: React.FC = () => {
         byApeCode: []
       });
       setConnectionStatus('disconnected');
+      setError(error instanceof Error ? error.message : 'Erreur de chargement');
     } finally {
       setIsLoading(false);
     }

@@ -74,22 +74,26 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = async (email: string, password: string) => {
     try {
-      // Try to login with backend first
       try {
         const { user: userData } = await apiService.login(email, password);
         setUser(userData);
         localStorage.removeItem('demo_mode');
       } catch (backendError) {
-        // If backend fails, use demo mode
-        const demoUser = {
-          id: 'demo-user',
-          email: email,
-          firstName: 'Demo',
-          lastName: 'User',
-          subscriptionPlan: 'free'
-        };
-        setUser(demoUser);
-        localStorage.setItem('demo_mode', 'true');
+        // Si c'est une erreur de backend non disponible, utiliser le mode démo
+        if (backendError instanceof Error && backendError.message.includes('Mode démonstration')) {
+          const demoUser = {
+            id: 'demo-user',
+            email: email,
+            firstName: 'Demo',
+            lastName: 'User',
+            subscriptionPlan: 'free'
+          };
+          setUser(demoUser);
+          localStorage.setItem('demo_mode', 'true');
+        } else {
+          // Pour les autres erreurs, les propager
+          throw backendError;
+        }
       }
     } catch (error) {
       throw error;

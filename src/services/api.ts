@@ -119,6 +119,22 @@ class ApiService {
 
       return response.json();
     } catch (error) {
+      // Si c'est une erreur de fetch (backend non disponible), on simule une réponse vide
+      if (error instanceof TypeError && error.message === 'Failed to fetch') {
+        // Pour les endpoints qui retournent des données, on retourne une structure vide
+        if (endpoint.includes('/stats')) {
+          return { success: true, data: { stats: { total: 0, monthly: 0, byDepartment: [], byApeCode: [] } } } as T;
+        }
+        if (endpoint.includes('/companies')) {
+          return { success: true, data: { companies: [], total: 0, pagination: {} } } as T;
+        }
+        if (endpoint.includes('/scraping/jobs')) {
+          return { success: true, data: { jobs: [] } } as T;
+        }
+        // Pour les autres endpoints, on lance une erreur spécifique
+        throw new Error('Mode démonstration - Backend non disponible');
+      }
+      
       if (error instanceof Error) {
         throw error;
       }
