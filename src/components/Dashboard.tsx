@@ -119,41 +119,16 @@ export const Dashboard: React.FC = () => {
         <p className="text-gray-600">Vue d'ensemble de vos données INPI</p>
         
         {/* Connection Status */}
-        <div className={`mt-4 border rounded-lg p-4 ${
-          connectionStatus === 'connected' 
-            ? 'bg-green-50 border-green-200' 
-            : connectionStatus === 'disconnected'
-            ? 'bg-red-50 border-red-200'
-            : 'bg-yellow-50 border-yellow-200'
-        }`}>
+        <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
           <div className="flex items-center gap-2">
-            {connectionStatus === 'connected' ? (
-              <Wifi className="w-5 h-5 text-green-600" />
-            ) : connectionStatus === 'disconnected' ? (
-              <WifiOff className="w-5 h-5 text-red-600" />
-            ) : (
-              <Activity className="w-5 h-5 text-yellow-600 animate-spin" />
-            )}
-            <p className={`text-sm font-medium ${
-              connectionStatus === 'connected' 
-                ? 'text-green-800' 
-                : connectionStatus === 'disconnected'
-                ? 'text-red-800'
-                : 'text-yellow-800'
-            }`}>
-              {connectionStatus === 'connected' 
-                ? 'Backend connecté - Données réelles disponibles'
-                : connectionStatus === 'disconnected'
-                ? 'Backend non connecté'
-                : 'Vérification de la connexion...'
-              }
+            <Database className="w-5 h-5 text-blue-600" />
+            <p className="text-sm font-medium text-blue-800">
+              Interface INPI Scraper - Prête à l'utilisation
             </p>
           </div>
-          {connectionStatus === 'disconnected' && (
-            <p className="text-xs text-red-700 mt-1">
-              Assurez-vous que le backend est démarré sur http://localhost:3001
-            </p>
-          )}
+          <p className="text-xs text-blue-700 mt-1">
+            Lancez un scraping pour commencer à collecter des données
+          </p>
         </div>
       </div>
 
