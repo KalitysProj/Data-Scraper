@@ -70,26 +70,55 @@ export interface ScrapingJob {
 
 class ApiService {
   private token: string | null = null;
-  private isBackendAvailable: boolean = false;
+  private backendAvailable: boolean | null = null;
 
   constructor() {
     this.token = localStorage.getItem('auth_token');
-    this.checkBackendAvailability();
   }
 
-  private async checkBackendAvailability(): Promise<void> {
+  private async checkBackendAvailability(): Promise<boolean> {
+    // Si on a déjà testé, retourner le résultat en cache
+    if (this.backendAvailable !== null) {
+      return this.backendAvailable;
+    }
+
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2000);
+      
       const response = await fetch(`${API_BASE_URL}/health`, {
         method: 'GET',
-        signal: AbortSignal.timeout(5000) // 5 second timeout
+        signal: controller.signal
       });
-      this.isBackendAvailable = response.ok;
+      
+      clearTimeout(timeoutId);
+      this.backendAvailable = response.ok;
+      return this.backendAvailable;
     } catch (error) {
-      this.isBackendAvailable = false;
+      this.backendAvailable = false;
+      return false;
     }
   }
 
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+    // Vérifier la disponibilité du backend avant de faire la requête
+    const isAvailable = await this.checkBackendAvailability();
+    
+    if (!isAvailable) {
+      // Simuler des réponses pour les endpoints de données
+      if (endpoint.includes('/stats')) {
+        return { success: true, data: { stats: { total: 0, monthly: 0, byDepartment: [], byApeCode: [] } } } as T;
+      }
+      if (endpoint.includes('/companies')) {
+        return { success: true, data: { companies: [], total: 0, pagination: {} } } as T;
+      }
+      if (endpoint.includes('/scraping/jobs')) {
+        return { success: true, data: { jobs: [] } } as T;
+      }
+      // Pour les autres endpoints, lancer une erreur spécifique
+      throw new Error('Mode démonstration - Backend non disponible');
+    }
+
     const url = `${API_BASE_URL}${endpoint}`;
     
     const headers: Record<string, string> = {
@@ -119,22 +148,12 @@ class ApiService {
 
       return response.json();
     } catch (error) {
-      // Si c'est une erreur de fetch (backend non disponible), on simule une réponse vide
+      // Marquer le backend comme non disponible en cas d'erreur de fetch
       if (error instanceof TypeError && error.message === 'Failed to fetch') {
-        // Pour les endpoints qui retournent des données, on retourne une structure vide
-        if (endpoint.includes('/stats')) {
-          return { success: true, data: { stats: { total: 0, monthly: 0, byDepartment: [], byApeCode: [] } } } as T;
-        }
-        if (endpoint.includes('/companies')) {
-          return { success: true, data: { companies: [], total: 0, pagination: {} } } as T;
-        }
-        if (endpoint.includes('/scraping/jobs')) {
-          return { success: true, data: { jobs: [] } } as T;
-        }
-        // Pour les autres endpoints, on lance une erreur spécifique
+        this.backendAvailable = false;
         throw new Error('Mode démonstration - Backend non disponible');
       }
-      
+
       if (error instanceof Error) {
         throw error;
       }
