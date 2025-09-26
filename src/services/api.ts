@@ -203,16 +203,24 @@ class ApiService {
 
   // Scraping
   async startScraping(config: { apeCode: string; department: string; siegeOnly: boolean }): Promise<{ jobId: string }> {
-    const response = await this.request<ApiResponse<{ jobId: string }>>('/scraping/start', {
-      method: 'POST',
-      body: JSON.stringify(config),
-    });
+    try {
+      const response = await this.request<ApiResponse<{ jobId: string }>>('/scraping/start', {
+        method: 'POST',
+        body: JSON.stringify(config),
+      });
 
-    if (response.success && response.data) {
-      return response.data;
+      if (response.success && response.data) {
+        return response.data;
+      }
+
+      throw new Error(response.error || 'Erreur lors du lancement du scraping');
+    } catch (error) {
+      // Si c'est une erreur de backend non disponible, la propager
+      if (error instanceof Error && error.message.includes('Mode démonstration')) {
+        throw new Error('Backend requis pour le scraping réel. Veuillez démarrer le serveur backend sur http://localhost:3001');
+      }
+      throw error;
     }
-
-    throw new Error(response.error || 'Erreur lors du lancement du scraping');
   }
 
   async getScrapingStatus(jobId: string): Promise<ScrapingJob> {
