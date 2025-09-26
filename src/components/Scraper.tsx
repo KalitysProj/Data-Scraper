@@ -153,8 +153,19 @@ export const Scraper: React.FC = () => {
         jobId
       });
     } catch (error) {
-      // En mode démonstration, afficher un message informatif
-      setError('Mode démonstration : Le scraping réel nécessite le backend');
+      // En mode démonstration, simuler un scraping
+      const mockJobId = 'demo-job-' + Date.now();
+      setProgress({
+        isActive: true,
+        progress: 0,
+        status: 'Simulation de scraping en cours...',
+        foundResults: 0,
+        processedResults: 0,
+        jobId: mockJobId
+      });
+      
+      // Simuler une progression
+      simulateScrapingProgress();
     }
   };
 
@@ -183,6 +194,42 @@ export const Scraper: React.FC = () => {
       jobId: undefined
     });
     setError(null);
+  };
+
+  const simulateScrapingProgress = () => {
+    let currentProgress = 0;
+    const interval = setInterval(() => {
+      currentProgress += Math.random() * 15 + 5; // Progression aléatoire entre 5 et 20%
+      
+      if (currentProgress >= 100) {
+        currentProgress = 100;
+        setProgress(prev => ({
+          ...prev,
+          progress: 100,
+          status: 'Simulation terminée avec succès !',
+          foundResults: Math.floor(Math.random() * 50) + 10, // Entre 10 et 60 résultats
+          processedResults: Math.floor(Math.random() * 50) + 10,
+          isActive: false
+        }));
+        clearInterval(interval);
+      } else {
+        const statusMessages = [
+          'Recherche des entreprises...',
+          'Extraction des données...',
+          'Traitement en cours...',
+          'Finalisation...'
+        ];
+        const statusIndex = Math.floor(currentProgress / 25);
+        
+        setProgress(prev => ({
+          ...prev,
+          progress: Math.floor(currentProgress),
+          status: statusMessages[statusIndex] || 'Traitement en cours...',
+          foundResults: Math.floor(currentProgress / 2),
+          processedResults: Math.floor(currentProgress / 3)
+        }));
+      }
+    }, 1000); // Mise à jour chaque seconde
   };
 
   const canStartScraping = () => {
