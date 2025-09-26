@@ -74,10 +74,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = async (email: string, password: string) => {
     try {
-      // Check if we're in demo mode (no backend)
-      const isDemoMode = !await checkBackendConnection();
-      if (isDemoMode) {
-        // Demo login - accept any credentials
+      // Try to login with backend first
+      try {
+        const { user: userData } = await apiService.login(email, password);
+        setUser(userData);
+        localStorage.removeItem('demo_mode');
+      } catch (backendError) {
+        // If backend fails, use demo mode
         const demoUser = {
           id: 'demo-user',
           email: email,
@@ -87,11 +90,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         };
         setUser(demoUser);
         localStorage.setItem('demo_mode', 'true');
-        return;
       }
-
-      const { user: userData } = await apiService.login(email, password);
-      setUser(userData);
     } catch (error) {
       throw error;
     }
@@ -99,10 +98,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const register = async (userData: { email: string; password: string; firstName?: string; lastName?: string }) => {
     try {
-      // Check if we're in demo mode (no backend)
-      const isDemoMode = !await checkBackendConnection();
-      if (isDemoMode) {
-        // Demo registration
+      // Try to register with backend first
+      try {
+        const { user: newUser } = await apiService.register(userData);
+        setUser(newUser);
+        localStorage.removeItem('demo_mode');
+      } catch (backendError) {
+        // If backend fails, use demo mode
         const demoUser = {
           id: 'demo-user',
           email: userData.email,
@@ -112,11 +114,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         };
         setUser(demoUser);
         localStorage.setItem('demo_mode', 'true');
-        return;
       }
-
-      const { user: newUser } = await apiService.register(userData);
-      setUser(newUser);
     } catch (error) {
       throw error;
     }
@@ -126,24 +124,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     apiService.logout();
     setUser(null);
     localStorage.removeItem('demo_mode');
-  };
-
-  const checkBackendConnection = async (): Promise<boolean> => {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3000);
-      
-      const response = await fetch('http://localhost:3001/api/health', {
-        method: 'GET',
-        signal: controller.signal
-      });
-      
-      clearTimeout(timeoutId);
-      return response.ok;
-    } catch (error) {
-      // Silently handle connection errors - this is expected when backend is not running
-      return false;
-    }
   };
 
   const value: AuthContextType = {

@@ -30,64 +30,42 @@ export const Dashboard: React.FC = () => {
     byApeCode: []
   });
   const [isLoading, setIsLoading] = useState(true);
-  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'checking'>('checking');
+  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'checking'>('disconnected');
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    checkConnection();
     loadDashboardData();
   }, []);
-
-  const checkConnection = async () => {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3000);
-      
-      const response = await fetch('http://localhost:3001/api/health', {
-        signal: controller.signal
-      });
-      
-      clearTimeout(timeoutId);
-      setConnectionStatus(response.ok ? 'connected' : 'disconnected');
-    } catch (error) {
-      // Silently handle connection errors - this is expected when backend is not running
-      setConnectionStatus('disconnected');
-    }
-  };
 
   const loadDashboardData = async () => {
     try {
       setIsLoading(true);
       setError(null);
       
-      // Check if we're in demo mode
-      const isDemoMode = localStorage.getItem('demo_mode') === 'true';
-      
-      if (connectionStatus === 'connected' && !isDemoMode) {
+      // Try to load real data first
+      try {
         const statsData = await apiService.getStats();
         setStats(statsData);
-      } else {
-        // Use demo data
+        setConnectionStatus('connected');
+      } catch (backendError) {
+        // If backend fails, use empty data and set disconnected status
         setStats({
           total: 0,
           monthly: 0,
           byDepartment: [],
           byApeCode: []
         });
+        setConnectionStatus('disconnected');
       }
     } catch (error) {
-      // Don't show error in demo mode
-      const isDemoMode = localStorage.getItem('demo_mode') === 'true';
-      if (!isDemoMode) {
-        setError(error instanceof Error ? error.message : 'Erreur lors du chargement des données');
-      }
-      // Utiliser des données vides en cas d'erreur
+      // Use empty data on any error
       setStats({
         total: 0,
         monthly: 0,
         byDepartment: [],
         byApeCode: []
       });
+      setConnectionStatus('disconnected');
     } finally {
       setIsLoading(false);
     }
