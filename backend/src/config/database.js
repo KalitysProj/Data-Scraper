@@ -1,75 +1,67 @@
-const sqlite3 = require('sqlite3').verbose();
-const path = require('path');
-const fs = require('fs');
+const mysql = require('mysql2/promise');
 require('dotenv').config();
 
-// Créer le répertoire database s'il n'existe pas
-const dbDir = path.join(__dirname, '../../database');
-if (!fs.existsSync(dbDir)) {
-  fs.mkdirSync(dbDir, { recursive: true });
-}
+// Configuration de la connexion MySQL
+const dbConfig = {
+  host: process.env.DB_HOST || 'localhost',
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD || '',
+  database: process.env.DB_NAME || 'inpi_scraper',
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
+};
 
-const dbPath = path.join(dbDir, 'inpi_scraper.db');
-
-// Créer la connexion SQLite
-const db = new sqlite3.Database(dbPath, (err) => {
-  if (err) {
-    console.error('❌ Erreur de connexion à SQLite:', err.message);
-  } else {
-    console.log('✅ Connexion à SQLite réussie');
-  }
-});
+// Créer le pool de connexions MySQL
+const pool = mysql.createPool(dbConfig);
 
 // Fonction pour exécuter des requêtes avec promesses
-function runQuery(sql, params = []) {
-  return new Promise((resolve, reject) => {
-    db.run(sql, params, function(err) {
-      if (err) {
-        reject(err);
-      } else {
-        resolve({ lastID: this.lastID, changes: this.changes });
-      }
-    });
-  });
+async function runQuery(sql, params = []) {
+  try {
+    const [result] = await pool.execute(sql, params);
+    return {
+      lastID: result.insertId,
+      changes: result.affectedRows
+    };
+  } catch (error) {
+    throw error;
+  }
 }
 
-function getQuery(sql, params = []) {
-  return new Promise((resolve, reject) => {
-    db.get(sql, params, (err, row) => {
-      if (err) {
-        reject(err);
-      } else {
-        resolve(row);
-      }
-    });
-  });
+async function getQuery(sql, params = []) {
+  try {
+    const [rows] = await pool.execute(sql, params);
+    return rows[0] || null;
+  } catch (error) {
+    throw error;
+  }
 }
 
-function allQuery(sql, params = []) {
-  return new Promise((resolve, reject) => {
-    db.all(sql, params, (err, rows) => {
-      if (err) {
-        reject(err);
-      } else {
-        resolve(rows);
-      }
-    });
-  });
+async function allQuery(sql, params = []) {
+  try {
+    const [rows] = await pool.execute(sql, params);
+    return rows;
+  } catch (error) {
+    throw error;
+  }
 }
 
 // Test de connexion
 async function testConnection() {
   try {
-    await getQuery('SELECT 1 as test');
+    const connection = await pool.getConnection();
+    await connection.ping();
+    connection.release();
+    console.log('✅ Connexion à MySQL réussie');
     return true;
   } catch (error) {
-    console.error('❌ Erreur de test de connexion SQLite:', error.message);
+    console.error('❌ Erreur de connexion MySQL:', error.message);
     return false;
   }
 }
 
 module.exports = {
-  db,
+  pool,
   runQuery,
   getQuery,
   allQuery,

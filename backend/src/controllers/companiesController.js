@@ -295,7 +295,7 @@ class CompaniesController {
 
       const monthlyResult = await getQuery(`
         SELECT COUNT(*) as monthly FROM companies 
-        WHERE user_id = ? AND scraped_at >= datetime('now', '-1 month')
+        WHERE user_id = ? AND scraped_at >= DATE_SUB(NOW(), INTERVAL 1 MONTH)
       `, [userId]);
 
       const departmentRows = await allQuery(`
