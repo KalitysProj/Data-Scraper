@@ -7,15 +7,15 @@ require('dotenv').config();
 
 async function setupDatabase() {
   try {
-    console.log('🚀 Configuration de la base de données SQLite INPI Scraper...\n');
+    console.log('🚀 Configuration de la base de données MySQL INPI Scraper...\n');
 
     // Test de connexion
     console.log('📡 Test de connexion...');
     const isConnected = await testConnection();
     if (!isConnected) {
-      throw new Error('Impossible de se connecter à SQLite');
+      throw new Error('Impossible de se connecter à MySQL');
     }
-    console.log('✅ Connexion SQLite établie\n');
+    console.log('✅ Connexion MySQL établie\n');
 
     // Créer les tables
     console.log('📋 Création des tables...');
@@ -23,17 +23,17 @@ async function setupDatabase() {
     // Table des utilisateurs
     await runQuery(`
       CREATE TABLE IF NOT EXISTS users (
-        id TEXT PRIMARY KEY,
-        email TEXT UNIQUE NOT NULL,
-        password_hash TEXT NOT NULL,
-        first_name TEXT,
-        last_name TEXT,
-        subscription_plan TEXT DEFAULT 'free' CHECK(subscription_plan IN ('free', 'pro', 'enterprise')),
-        api_requests_used INTEGER DEFAULT 0,
-        api_requests_limit INTEGER DEFAULT 1000,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        last_login DATETIME
+        id VARCHAR(36) PRIMARY KEY,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        password_hash VARCHAR(255) NOT NULL,
+        first_name VARCHAR(100),
+        last_name VARCHAR(100),
+        subscription_plan ENUM('free', 'pro', 'enterprise') DEFAULT 'free',
+        api_requests_used INT DEFAULT 0,
+        api_requests_limit INT DEFAULT 1000,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        last_login TIMESTAMP NULL
       )
     `);
     console.log('✅ Table users créée');
@@ -41,23 +41,23 @@ async function setupDatabase() {
     // Table des entreprises
     await runQuery(`
       CREATE TABLE IF NOT EXISTS companies (
-        id TEXT PRIMARY KEY,
-        denomination TEXT NOT NULL,
-        siren TEXT UNIQUE NOT NULL,
+        id VARCHAR(36) PRIMARY KEY,
+        denomination VARCHAR(255) NOT NULL,
+        siren VARCHAR(9) UNIQUE NOT NULL,
         start_date DATE,
-        representatives TEXT,
-        legal_form TEXT,
-        establishments INTEGER DEFAULT 1,
-        department TEXT,
-        ape_code TEXT,
+        representatives JSON,
+        legal_form VARCHAR(100),
+        establishments INT DEFAULT 1,
+        department VARCHAR(3),
+        ape_code VARCHAR(10),
         address TEXT,
-        postal_code TEXT,
-        city TEXT,
-        status TEXT DEFAULT 'active' CHECK(status IN ('active', 'inactive', 'radiated')),
-        scraped_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        user_id TEXT,
+        postal_code VARCHAR(10),
+        city VARCHAR(100),
+        status ENUM('active', 'inactive', 'radiated') DEFAULT 'active',
+        scraped_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        user_id VARCHAR(36),
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
       )
     `);
@@ -66,19 +66,19 @@ async function setupDatabase() {
     // Table des tâches de scraping
     await runQuery(`
       CREATE TABLE IF NOT EXISTS scraping_jobs (
-        id TEXT PRIMARY KEY,
-        user_id TEXT NOT NULL,
-        ape_code TEXT NOT NULL,
-        department TEXT NOT NULL,
-        siege_only BOOLEAN DEFAULT 1,
-        status TEXT DEFAULT 'pending' CHECK(status IN ('pending', 'running', 'completed', 'failed')),
-        progress INTEGER DEFAULT 0,
-        results_found INTEGER DEFAULT 0,
-        results_processed INTEGER DEFAULT 0,
+        id VARCHAR(36) PRIMARY KEY,
+        user_id VARCHAR(36) NOT NULL,
+        ape_code VARCHAR(10) NOT NULL,
+        department VARCHAR(3) NOT NULL,
+        siege_only BOOLEAN DEFAULT TRUE,
+        status ENUM('pending', 'running', 'completed', 'failed') DEFAULT 'pending',
+        progress INT DEFAULT 0,
+        results_found INT DEFAULT 0,
+        results_processed INT DEFAULT 0,
         error_message TEXT,
-        started_at DATETIME,
-        completed_at DATETIME,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        started_at TIMESTAMP NULL,
+        completed_at TIMESTAMP NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
       )
     `);
@@ -87,13 +87,13 @@ async function setupDatabase() {
     // Table des logs
     await runQuery(`
       CREATE TABLE IF NOT EXISTS activity_logs (
-        id TEXT PRIMARY KEY,
-        user_id TEXT,
-        action TEXT NOT NULL,
+        id VARCHAR(36) PRIMARY KEY,
+        user_id VARCHAR(36),
+        action VARCHAR(255) NOT NULL,
         details TEXT,
-        ip_address TEXT,
+        ip_address VARCHAR(45),
         user_agent TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
       )
     `);
@@ -122,7 +122,7 @@ async function setupDatabase() {
     const testPassword = await bcrypt.hash('test123', 10);
     
     await runQuery(`
-      INSERT OR IGNORE INTO users (id, email, password_hash, first_name, last_name, subscription_plan, api_requests_limit)
+      INSERT IGNORE INTO users (id, email, password_hash, first_name, last_name, subscription_plan, api_requests_limit)
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `, [testUserId, 'test@example.com', testPassword, 'Test', 'User', 'pro', 10000]);
     console.log('✅ Utilisateur de test créé\n');
@@ -209,7 +209,7 @@ async function setupDatabase() {
 
     for (const company of demoCompanies) {
       await runQuery(`
-        INSERT OR IGNORE INTO companies 
+        INSERT IGNORE INTO companies 
         (id, denomination, siren, start_date, representatives, legal_form, establishments, 
          department, ape_code, address, postal_code, city, user_id)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
