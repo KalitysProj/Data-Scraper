@@ -1,37 +1,78 @@
-const mysql = require('mysql2/promise');
+const sqlite3 = require('sqlite3').verbose();
+const path = require('path');
+const fs = require('fs');
 require('dotenv').config();
 
-const dbConfig = {
-  host: process.env.DB_HOST || 'localhost',
-  port: process.env.DB_PORT || 3306,
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'inpi_scraper',
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
-  acquireTimeout: 60000,
-  timeout: 60000,
-  reconnect: true
-};
+// Créer le répertoire database s'il n'existe pas
+const dbDir = path.dirname(process.env.DB_PATH || './database/inpi_scraper.db');
+if (!fs.existsSync(dbDir)) {
+  fs.mkdirSync(dbDir, { recursive: true });
+}
 
-// Pool de connexions
-const pool = mysql.createPool(dbConfig);
+const dbPath = process.env.DB_PATH || './database/inpi_scraper.db';
+
+// Créer la connexion SQLite
+const db = new sqlite3.Database(dbPath, (err) => {
+  if (err) {
+    console.error('❌ Erreur de connexion à SQLite:', err.message);
+  } else {
+    console.log('✅ Connexion à SQLite réussie');
+  }
+});
+
+// Fonction pour exécuter des requêtes avec promesses
+function runQuery(sql, params = []) {
+  return new Promise((resolve, reject) => {
+    db.run(sql, params, function(err) {
+      if (err) {
+        reject(err);
+      } else {
+        resolve({ lastID: this.lastID, changes: this.changes });
+      }
+    });
+  });
+}
+
+function getQuery(sql, params = []) {
+  return new Promise((resolve, reject) => {
+    db.get(sql, params, (err, row) => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(row);
+      }
+    });
+  });
+}
+
+function allQuery(sql, params = []) {
+  return new Promise((resolve, reject) => {
+    db.all(sql, params, (err, rows) => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(rows);
+      }
+    });
+  });
+}
 
 // Test de connexion
 async function testConnection() {
   try {
-    const connection = await pool.getConnection();
-    console.log('✅ Connexion à la base de données réussie');
-    connection.release();
+    await getQuery('SELECT 1 as test');
+    console.log('✅ Test de connexion SQLite réussi');
     return true;
   } catch (error) {
-    console.error('❌ Erreur de connexion à la base de données:', error.message);
+    console.error('❌ Erreur de test de connexion SQLite:', error.message);
     return false;
   }
 }
 
 module.exports = {
-  pool,
+  db,
+  runQuery,
+  getQuery,
+  allQuery,
   testConnection
 };
