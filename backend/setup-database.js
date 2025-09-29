@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const { db, runQuery, testConnection } = require('./src/config/database');
+const { runQuery, getQuery, testConnection } = require('./src/config/database');
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 require('dotenv').config();
@@ -174,6 +174,36 @@ async function setupDatabase() {
         postal_code: '75001',
         city: 'Paris',
         user_id: testUserId
+      },
+      {
+        id: uuidv4(),
+        denomination: 'DIGITAL SERVICES SA',
+        siren: '789123456',
+        start_date: '2022-09-12',
+        representatives: JSON.stringify(['Marc DUBOIS', 'Claire MOREAU']),
+        legal_form: 'SA',
+        establishments: 4,
+        department: '13',
+        ape_code: '6202A',
+        address: '321 Avenue de la Mer',
+        postal_code: '13000',
+        city: 'Marseille',
+        user_id: testUserId
+      },
+      {
+        id: uuidv4(),
+        denomination: 'CONSTRUCTION MODERNE SARL',
+        siren: '321654987',
+        start_date: '2018-03-05',
+        representatives: JSON.stringify(['Paul ROUSSEAU']),
+        legal_form: 'SARL',
+        establishments: 2,
+        department: '69',
+        ape_code: '4120A',
+        address: '654 Rue du Bâtiment',
+        postal_code: '69100',
+        city: 'Villeurbanne',
+        user_id: testUserId
       }
     ];
 
@@ -206,11 +236,11 @@ async function setupDatabase() {
 if (require.main === module) {
   setupDatabase()
     .then(() => {
-      db.close();
+      console.log('\n✅ Setup terminé avec succès');
       process.exit(0);
     })
-    .catch(() => {
-      db.close();
+    .catch((error) => {
+      console.error('\n❌ Erreur lors du setup:', error);
       process.exit(1);
     });
 }

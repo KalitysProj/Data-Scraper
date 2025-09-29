@@ -1,5 +1,5 @@
 // Configuration de l'API backend
-const API_BASE_URL = 'http://localhost:3001/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
 // Token d'authentification (pour les tests)
 let authToken: string | null = null;
@@ -57,6 +57,7 @@ export interface ScrapingJob {
 
 class ApiService {
   private token: string | null = null;
+  private backendAvailable: boolean = false;
 
   constructor() {
     // Récupérer le token depuis localStorage si disponible
@@ -76,7 +77,7 @@ class ApiService {
       });
       
       clearTimeout(timeoutId);
-      return this.backendAvailable;
+      return response.ok;
     } catch (error) {
       return false;
     }
@@ -84,6 +85,12 @@ class ApiService {
 
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const url = `${API_BASE_URL}${endpoint}`;
+    
+    // Vérifier la disponibilité du backend
+    const isAvailable = await this.checkBackendAvailability();
+    if (!isAvailable) {
+      throw new Error('Mode démonstration - Backend non disponible');
+    }
     
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -105,6 +112,9 @@ class ApiService {
       return response.json();
     } catch (error) {
       if (error instanceof Error) {
+        if (error.message.includes('Mode démonstration')) {
+          throw error;
+        }
         throw error;
       }
       throw new Error('Erreur de connexion au serveur');
