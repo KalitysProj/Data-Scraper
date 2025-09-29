@@ -1,3 +1,4 @@
 {"level":"info","message":"🚀 Serveur démarré sur le port 3001","service":"inpi-scraper","timestamp":"2025-09-29 16:16:36"}
 {"level":"info","message":"📊 Dashboard: http://localhost:3001/api/health","service":"inpi-scraper","timestamp":"2025-09-29 16:16:36"}
 {"level":"info","message":"🔧 Environment: development","service":"inpi-scraper","timestamp":"2025-09-29 16:16:36"}
+{"level":"info","message":"GET / - 127.0.0.1","service":"inpi-scraper","timestamp":"2025-09-29 16:16:38"}
