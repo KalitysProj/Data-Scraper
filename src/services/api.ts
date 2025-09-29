@@ -1,21 +1,8 @@
 // Configuration de l'API backend
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+const API_BASE_URL = 'http://localhost:3001/api';
 
-// Vérifier si le backend est disponible
-let isBackendAvailable = false;
-
-// Test de connexion au démarrage
-const testBackendConnection = async () => {
-  try {
-    const response = await fetch(`${API_BASE_URL}/health`);
-    isBackendAvailable = response.ok;
-  } catch (error) {
-    isBackendAvailable = false;
-  }
-};
-
-// Tester la connexion au démarrage
-testBackendConnection();
+// Token d'authentification (pour les tests)
+let authToken: string | null = null;
 
 // Interface pour les réponses API
 interface ApiResponse<T = any> {
@@ -69,17 +56,19 @@ export interface ScrapingJob {
 }
 
 class ApiService {
-  private backendAvailable: boolean | null = null;
+  private token: string | null = null;
+
+  constructor() {
+    // Récupérer le token depuis localStorage si disponible
+    if (typeof window !== 'undefined') {
+      this.token = localStorage.getItem('auth_token');
+    }
+  }
 
   private async checkBackendAvailability(): Promise<boolean> {
-    // Si on a déjà testé, retourner le résultat en cache
-    if (this.backendAvailable !== null) {
-      return this.backendAvailable;
-    }
-
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 2000);
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
       
       const response = await fetch(`${API_BASE_URL}/health`, {
         method: 'GET',
@@ -87,37 +76,18 @@ class ApiService {
       });
       
       clearTimeout(timeoutId);
-      this.backendAvailable = response.ok;
       return this.backendAvailable;
     } catch (error) {
-      this.backendAvailable = false;
       return false;
     }
   }
 
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    // Vérifier la disponibilité du backend avant de faire la requête
-    const isAvailable = await this.checkBackendAvailability();
-    
-    if (!isAvailable) {
-      // Simuler des réponses pour les endpoints de données
-      if (endpoint.includes('/stats')) {
-        return { success: true, data: { stats: { total: 0, monthly: 0, byDepartment: [], byApeCode: [] } } } as T;
-      }
-      if (endpoint.includes('/companies')) {
-        return { success: true, data: { companies: [], total: 0, pagination: {} } } as T;
-      }
-      if (endpoint.includes('/scraping/jobs')) {
-        return { success: true, data: { jobs: [] } } as T;
-      }
-      // Pour les autres endpoints, lancer une erreur spécifique
-      throw new Error('Mode démonstration - Backend non disponible');
-    }
-
     const url = `${API_BASE_URL}${endpoint}`;
     
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
+      ...(this.token && { 'Authorization': `Bearer ${this.token}` }),
       ...options.headers as Record<string, string>,
     };
 
@@ -134,12 +104,6 @@ class ApiService {
 
       return response.json();
     } catch (error) {
-      // Marquer le backend comme non disponible en cas d'erreur de fetch
-      if (error instanceof TypeError && error.message === 'Failed to fetch') {
-        this.backendAvailable = false;
-        throw new Error('Mode démonstration - Backend non disponible');
-      }
-
       if (error instanceof Error) {
         throw error;
       }
@@ -244,7 +208,7 @@ class ApiService {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': this.token ? `Bearer ${this.token}` : '',
+        ...(this.token && { 'Authorization': `Bearer ${this.token}` }),
       },
       body: JSON.stringify({ companyIds: companyIds || [] }),
     });
@@ -269,13 +233,33 @@ class ApiService {
   // Test de connexion
   async testConnection(): Promise<{ success: boolean; message: string }> {
     try {
-      const response = await this.request<{ success: boolean; message: string }>('/test-db');
-      return response;
+      const isAvailable = await this.checkBackendAvailability();
+      if (!isAvailable) {
+        return { success: false, message: 'Backend non disponible' };
+      }
+      
+      const response = await this.request<{ success: boolean; message: string }>('/health');
+      return { success: true, message: 'Connexion réussie' };
     } catch (error) {
       return { 
         success: false, 
         message: error instanceof Error ? error.message : 'Erreur de connexion' 
       };
+    }
+  }
+
+  // Authentification (pour les tests)
+  setToken(token: string) {
+    this.token = token;
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('auth_token', token);
+    }
+  }
+
+  clearToken() {
+    this.token = null;
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('auth_token');
     }
   }
 }

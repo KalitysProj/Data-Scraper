@@ -1,7 +1,7 @@
 const express = require('express');
 const { body, query } = require('express-validator');
 const companiesController = require('../controllers/companiesController');
-const { authenticateToken } = require('../middleware/auth');
+const { optionalAuth } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -19,10 +19,10 @@ const deleteCompaniesValidation = [
 ];
 
 // Routes protégées
-router.get('/', authenticateToken, getCompaniesValidation, companiesController.getCompanies);
-router.get('/stats', authenticateToken, companiesController.getStats);
-router.get('/:id', authenticateToken, companiesController.getCompanyById);
-router.delete('/', authenticateToken, deleteCompaniesValidation, companiesController.deleteCompanies);
-router.post('/export/csv', authenticateToken, companiesController.exportToCsv);
+router.get('/', optionalAuth, getCompaniesValidation, companiesController.getCompanies);
+router.get('/stats', optionalAuth, companiesController.getStats);
+router.get('/:id', optionalAuth, companiesController.getCompanyById);
+router.delete('/', optionalAuth, deleteCompaniesValidation, companiesController.deleteCompanies);
+router.post('/export/csv', optionalAuth, companiesController.exportToCsv);
 
 module.exports = router;

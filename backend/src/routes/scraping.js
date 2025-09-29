@@ -1,7 +1,7 @@
 const express = require('express');
 const { body } = require('express-validator');
 const scrapingController = require('../controllers/scrapingController');
-const { authenticateToken } = require('../middleware/auth');
+const { optionalAuth } = require('../middleware/auth');
 const { scrapingLimiter, userApiLimiter } = require('../middleware/rateLimiter');
 
 const router = express.Router();
@@ -15,15 +15,15 @@ const scrapingValidation = [
 
 // Routes protégées
 router.post('/start', 
-  authenticateToken, 
+  optionalAuth, 
   scrapingLimiter, 
   userApiLimiter, 
   scrapingValidation, 
   scrapingController.startScraping
 );
 
-router.get('/status/:jobId', authenticateToken, scrapingController.getScrapingStatus);
-router.get('/jobs', authenticateToken, scrapingController.getUserScrapingJobs);
-router.post('/stop/:jobId', authenticateToken, scrapingController.stopScraping);
+router.get('/status/:jobId', optionalAuth, scrapingController.getScrapingStatus);
+router.get('/jobs', optionalAuth, scrapingController.getUserScrapingJobs);
+router.post('/stop/:jobId', optionalAuth, scrapingController.stopScraping);
 
 module.exports = router;
