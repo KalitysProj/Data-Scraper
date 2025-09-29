@@ -1,7 +1,7 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
-const { pool } = require('../config/database');
+const { runQuery, getQuery, allQuery } = require('../config/database');
 const logger = require('../utils/logger');
 
 class AuthController {
@@ -25,12 +25,12 @@ class AuthController {
       }
 
       // Vérifier si l'utilisateur existe déjà
-      const [existingUsers] = await pool.execute(
+      const existingUser = await getQuery(
         'SELECT id FROM users WHERE email = ?',
         [email]
       );
 
-      if (existingUsers.length > 0) {
+      if (existingUser) {
         return res.status(409).json({
           success: false,
           error: 'Un utilisateur avec cet email existe déjà'
@@ -42,7 +42,7 @@ class AuthController {
 
       // Créer l'utilisateur
       const userId = uuidv4();
-      await pool.execute(`
+      await runQuery(`
         INSERT INTO users (id, email, password_hash, first_name, last_name, subscription_plan, api_requests_limit)
         VALUES (?, ?, ?, ?, ?, 'free', 1000)
       `, [userId, email, passwordHash, firstName || '', lastName || '']);
@@ -89,19 +89,18 @@ class AuthController {
       }
 
       // Trouver l'utilisateur
-      const [users] = await pool.execute(
+      const user = await getQuery(
         'SELECT id, email, password_hash, first_name, last_name, subscription_plan FROM users WHERE email = ?',
         [email]
       );
 
-      if (users.length === 0) {
+      if (!user) {
         return res.status(401).json({
           success: false,
           error: 'Email ou mot de passe incorrect'
         });
       }
 
-      const user = users[0];
 
       // Vérifier le mot de passe
       const isPasswordValid = await bcrypt.compare(password, user.password_hash);
@@ -113,8 +112,8 @@ class AuthController {
       }
 
       // Mettre à jour la dernière connexion
-      await pool.execute(
-        'UPDATE users SET last_login = NOW() WHERE id = ?',
+      await runQuery(
+        'UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?',
         [user.id]
       );
 
@@ -151,20 +150,19 @@ class AuthController {
     try {
       const userId = req.user.id;
 
-      const [users] = await pool.execute(`
+      const user = await getQuery(`
         SELECT id, email, first_name, last_name, subscription_plan, 
                api_requests_used, api_requests_limit, created_at, last_login
         FROM users WHERE id = ?
       `, [userId]);
 
-      if (users.length === 0) {
+      if (!user) {
         return res.status(404).json({
           success: false,
           error: 'Utilisateur non trouvé'
         });
       }
 
-      const user = users[0];
 
       res.json({
         success: true,
@@ -218,19 +216,19 @@ class AuthController {
         }
 
         // Vérifier le mot de passe actuel
-        const [users] = await pool.execute(
+        const user = await getQuery(
           'SELECT password_hash FROM users WHERE id = ?',
           [userId]
         );
 
-        if (users.length === 0) {
+        if (!user) {
           return res.status(404).json({
             success: false,
             error: 'Utilisateur non trouvé'
           });
         }
 
-        const isCurrentPasswordValid = await bcrypt.compare(currentPassword, users[0].password_hash);
+        const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password_hash);
         if (!isCurrentPasswordValid) {
           return res.status(401).json({
             success: false,
@@ -257,10 +255,10 @@ class AuthController {
         });
       }
 
-      updates.push('updated_at = NOW()');
+      updates.push('updated_at = CURRENT_TIMESTAMP');
       params.push(userId);
 
-      await pool.execute(`
+      await runQuery(`
         UPDATE users SET ${updates.join(', ')} WHERE id = ?
       `, params);
 

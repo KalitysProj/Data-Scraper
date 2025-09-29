@@ -1,5 +1,5 @@
 const rateLimit = require('express-rate-limit');
-const { pool } = require('../config/database');
+const { getQuery } = require('../config/database');
 
 // Rate limiter général
 const generalLimiter = rateLimit({
@@ -41,19 +41,18 @@ const userApiLimiter = async (req, res, next) => {
       return next();
     }
 
-    const [users] = await pool.execute(
+    const user = await getQuery(
       'SELECT api_requests_used, api_requests_limit FROM users WHERE id = ?',
       [req.user.id]
     );
 
-    if (users.length === 0) {
+    if (!user) {
       return res.status(404).json({
         success: false,
         error: 'Utilisateur non trouvé'
       });
     }
 
-    const user = users[0];
     if (user.api_requests_used >= user.api_requests_limit) {
       return res.status(429).json({
         success: false,

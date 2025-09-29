@@ -1,4 +1,4 @@
-const { pool } = require('../config/database');
+const { allQuery, getQuery, runQuery } = require('../config/database');
 const createCsvWriter = require('csv-writer').createObjectCsvWriter;
 const path = require('path');
 const fs = require('fs').promises;
@@ -63,7 +63,7 @@ class CompaniesController {
       query += ` LIMIT ? OFFSET ?`;
       params.push(parseInt(limit), parseInt(offset));
 
-      const [rows] = await pool.execute(query, params);
+      const rows = await allQuery(query, params);
 
       // Compter le total
       let countQuery = `SELECT COUNT(*) as total FROM companies WHERE user_id = ?`;
@@ -90,22 +90,22 @@ class CompaniesController {
         countParams.push(legalForm);
       }
 
-      const [countRows] = await pool.execute(countQuery, countParams);
+      const countResult = await getQuery(countQuery, countParams);
 
       // Parser les représentants JSON
       const companies = rows.map(company => ({
         ...company,
-        representatives: JSON.parse(company.representatives || '[]')
+        representatives: company.representatives ? JSON.parse(company.representatives) : []
       }));
 
       res.json({
         success: true,
         companies,
-        total: countRows[0].total,
+        total: countResult.total,
         pagination: {
           limit: parseInt(limit),
           offset: parseInt(offset),
-          hasMore: parseInt(offset) + companies.length < countRows[0].total
+          hasMore: parseInt(offset) + companies.length < countResult.total
         }
       });
 
@@ -123,26 +123,26 @@ class CompaniesController {
       const { id } = req.params;
       const userId = req.user.id || 'demo-user';
 
-      const [rows] = await pool.execute(`
+      const company = await getQuery(`
         SELECT * FROM companies 
         WHERE id = ? AND user_id = ?
       `, [id, userId]);
 
-      if (rows.length === 0) {
+      if (!company) {
         return res.status(404).json({
           success: false,
           error: 'Entreprise non trouvée'
         });
       }
 
-      const company = {
-        ...rows[0],
-        representatives: JSON.parse(rows[0].representatives || '[]')
+      const result = {
+        ...company,
+        representatives: company.representatives ? JSON.parse(company.representatives) : []
       };
 
       res.json({
         success: true,
-        company
+        company: result
       });
 
     } catch (error) {
@@ -167,14 +167,14 @@ class CompaniesController {
       }
 
       const placeholders = companyIds.map(() => '?').join(',');
-      const [result] = await pool.execute(`
+      const result = await runQuery(`
         DELETE FROM companies 
         WHERE id IN (${placeholders}) AND user_id = ?
       `, [...companyIds, userId]);
 
       res.json({
         success: true,
-        message: `${result.affectedRows} entreprise(s) supprimée(s)`
+        message: `${result.changes} entreprise(s) supprimée(s)`
       });
 
     } catch (error) {
@@ -208,7 +208,7 @@ class CompaniesController {
 
       query += ` ORDER BY denomination`;
 
-      const [rows] = await pool.execute(query, params);
+      const rows = await allQuery(query, params);
 
       if (rows.length === 0) {
         return res.status(404).json({
@@ -222,7 +222,7 @@ class CompaniesController {
         denomination: company.denomination,
         siren: company.siren,
         start_date: company.start_date ? company.start_date.toISOString().split('T')[0] : '',
-        representatives: JSON.parse(company.representatives || '[]').join('; '),
+        representatives: company.representatives ? JSON.parse(company.representatives).join('; ') : '',
         legal_form: company.legal_form || '',
         establishments: company.establishments || 1,
         department: company.department || '',
@@ -288,17 +288,17 @@ class CompaniesController {
     try {
       const userId = req.user.id || 'demo-user';
 
-      const [totalRows] = await pool.execute(
+      const totalResult = await getQuery(
         'SELECT COUNT(*) as total FROM companies WHERE user_id = ?',
         [userId]
       );
 
-      const [monthlyRows] = await pool.execute(`
+      const monthlyResult = await getQuery(`
         SELECT COUNT(*) as monthly FROM companies 
-        WHERE user_id = ? AND scraped_at >= DATE_SUB(NOW(), INTERVAL 1 MONTH)
+        WHERE user_id = ? AND scraped_at >= datetime('now', '-1 month')
       `, [userId]);
 
-      const [departmentRows] = await pool.execute(`
+      const departmentRows = await allQuery(`
         SELECT department, COUNT(*) as count 
         FROM companies 
         WHERE user_id = ? 
@@ -307,7 +307,7 @@ class CompaniesController {
         LIMIT 10
       `, [userId]);
 
-      const [apeRows] = await pool.execute(`
+      const apeRows = await allQuery(`
         SELECT ape_code, COUNT(*) as count 
         FROM companies 
         WHERE user_id = ? 
@@ -319,8 +319,8 @@ class CompaniesController {
       res.json({
         success: true,
         stats: {
-          total: totalRows[0].total,
-          monthly: monthlyRows[0].monthly,
+          total: totalResult.total,
+          monthly: monthlyResult.monthly,
           byDepartment: departmentRows,
           byApeCode: apeRows
         }

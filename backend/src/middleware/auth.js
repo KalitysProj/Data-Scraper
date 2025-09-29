@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const { pool } = require('../config/database');
+const { getQuery } = require('../config/database');
 const logger = require('../utils/logger');
 
 // Middleware d'authentification avec token JWT
@@ -29,19 +29,19 @@ const authenticateToken = async (req, res, next) => {
 
       try {
         // Récupérer les informations utilisateur depuis la base
-        const [users] = await pool.execute(
+        const user = await getQuery(
           'SELECT id, email, subscription_plan FROM users WHERE id = ?',
           [decoded.userId]
         );
 
-        if (users.length === 0) {
+        if (!user) {
           return res.status(404).json({
             success: false,
             error: 'Utilisateur non trouvé'
           });
         }
 
-        req.user = users[0];
+        req.user = user;
         next();
       } catch (dbError) {
         logger.error('Erreur lors de la vérification utilisateur:', dbError);
@@ -87,19 +87,19 @@ const optionalAuth = async (req, res, next) => {
       }
 
       try {
-        const [users] = await pool.execute(
+        const user = await getQuery(
           'SELECT id, email, subscription_plan FROM users WHERE id = ?',
           [decoded.userId]
         );
 
-        if (users.length === 0) {
+        if (!user) {
           req.user = {
             id: 'demo-user',
             email: 'demo@example.com',
             subscription_plan: 'pro'
           };
         } else {
-          req.user = users[0];
+          req.user = user;
         }
 
         next();

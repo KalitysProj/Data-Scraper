@@ -4,12 +4,12 @@ const fs = require('fs');
 require('dotenv').config();
 
 // Créer le répertoire database s'il n'existe pas
-const dbDir = path.dirname(process.env.DB_PATH || './database/inpi_scraper.db');
+const dbDir = path.join(__dirname, '../../database');
 if (!fs.existsSync(dbDir)) {
   fs.mkdirSync(dbDir, { recursive: true });
 }
 
-const dbPath = process.env.DB_PATH || './database/inpi_scraper.db';
+const dbPath = path.join(dbDir, 'inpi_scraper.db');
 
 // Créer la connexion SQLite
 const db = new sqlite3.Database(dbPath, (err) => {
@@ -61,7 +61,6 @@ function allQuery(sql, params = []) {
 async function testConnection() {
   try {
     await getQuery('SELECT 1 as test');
-    console.log('✅ Test de connexion SQLite réussi');
     return true;
   } catch (error) {
     console.error('❌ Erreur de test de connexion SQLite:', error.message);
