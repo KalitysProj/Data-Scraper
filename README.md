@@ -1,16 +1,10 @@
-# INPI Data Scraper - Application SaaS ✅
+# INPI Data Scraper - Application SaaS
 
 Application web professionnelle pour extraire et gérer les données d'entreprises depuis le site INPI (Institut National de la Propriété Industrielle).
 
 ## 🚀 Démarrage rapide
 
-**Voir `GUIDE_INSTALLATION.md` pour les instructions détaillées**
-
-### 1. Créer les tables Supabase
-
-Exécutez le SQL fourni dans le guide d'installation.
-
-### 2. Installer et démarrer le backend
+### 1. Installer et démarrer le backend
 
 ```bash
 cd backend
@@ -18,9 +12,9 @@ npm install
 npm run dev
 ```
 
-Le backend démarre sur http://localhost:3001
+Le backend démarre sur http://localhost:3001 avec une base de données SQLite locale.
 
-### 3. Installer et démarrer le frontend
+### 2. Installer et démarrer le frontend
 
 ```bash
 npm install
@@ -38,14 +32,14 @@ Le frontend s'ouvre sur http://localhost:5173
 - **Export CSV** : Export des données sélectionnées
 - **Paramètres** : Configuration avancée
 
-### Backend API (Implémenté)
+### Backend API
 - ✅ Scraping automatisé avec Puppeteer
-- ✅ Base de données Supabase PostgreSQL
+- ✅ Base de données SQLite locale (aucune configuration requise)
 - ✅ API REST complète
 - ✅ Rate limiting
 - ✅ Gestion des tâches de scraping
 - ✅ Export CSV
-- ✅ Authentification Supabase (optionnelle en dev)
+- ✅ Mode démonstration intégré
 
 ## 📊 Données extraites
 
@@ -65,11 +59,10 @@ Le frontend s'ouvre sur http://localhost:5173
 - Vite
 - Tailwind CSS
 - Lucide Icons
-- Supabase Client
 
 **Backend**
 - Node.js + Express
-- Supabase (PostgreSQL + Auth)
+- SQLite (better-sqlite3)
 - Puppeteer (scraping)
 - Winston (logging)
 - Express Rate Limit
@@ -80,35 +73,21 @@ Le frontend s'ouvre sur http://localhost:5173
 .
 ├── src/                    # Code frontend React
 │   ├── components/        # Composants React
-│   │   ├── Dashboard.tsx
-│   │   ├── Scraper.tsx
-│   │   ├── DataManager.tsx
-│   │   └── Settings.tsx
 │   └── services/          # Services API
-│       └── api.ts
 ├── backend/               # Code backend Node.js
+│   ├── database/          # Base SQLite (auto-créée)
 │   └── src/
-│       ├── config/        # Configuration Supabase
+│       ├── config/        # Configuration
 │       ├── controllers/   # Logique métier
-│       │   ├── authController.js
-│       │   ├── companiesController.js
-│       │   └── scrapingController.js
 │       ├── middleware/    # Middlewares Express
 │       ├── routes/        # Routes API
-│       ├── services/      # Service de scraping
-│       │   └── scraper.js
-│       └── server.js
-├── GUIDE_INSTALLATION.md  # Guide détaillé
+│       └── services/      # Service de scraping
 └── README.md
 ```
 
 ## 🌐 API Endpoints
 
 ```
-POST   /api/auth/register        # Inscription
-POST   /api/auth/login           # Connexion
-GET    /api/auth/profile         # Profil utilisateur
-
 POST   /api/scraping/start       # Démarrer un scraping
 GET    /api/scraping/status/:id  # Statut d'une tâche
 POST   /api/scraping/stop/:id    # Arrêter un scraping
@@ -121,16 +100,16 @@ POST   /api/companies/export/csv # Export CSV
 GET    /api/companies/stats      # Statistiques
 
 GET    /api/health               # Santé de l'API
+GET    /api/test-db              # Test connexion DB
 ```
 
 ## 🔐 Sécurité
 
-- Row Level Security (RLS) sur toutes les tables Supabase
 - Rate limiting sur l'API (100 req/15min)
 - Validation des entrées utilisateur
-- Authentification Supabase (optionnelle en dev)
 - Mode démonstration sécurisé
 - Logs Winston pour l'audit
+- Base de données locale isolée
 
 ## 🔄 Mode démonstration
 
@@ -138,7 +117,7 @@ L'application fonctionne en mode démonstration par défaut :
 - Pas d'authentification requise
 - Les données sont associées à `user_id='demo-user'`
 - Toutes les fonctionnalités sont accessibles
-- Idéal pour les tests et la démonstration
+- Base de données SQLite locale
 
 ## ⚠️ Considérations légales
 
@@ -149,10 +128,10 @@ L'application fonctionne en mode démonstration par défaut :
 - ✅ User-Agent configuré
 
 ### RGPD et Protection des Données
-- ✅ Données sécurisées avec RLS
+- ✅ Données stockées localement
 - ✅ Suppression des données possible
 - ✅ Isolation des données par utilisateur
-- ✅ Stockage chiffré (Supabase)
+- ✅ Pas de transmission externe
 
 ## 🛠️ Dépannage
 
@@ -160,7 +139,7 @@ L'application fonctionne en mode démonstration par défaut :
 
 1. Vérifiez que le backend est démarré : `cd backend && npm run dev`
 2. Testez l'API : http://localhost:3001/api/health
-3. Vérifiez la configuration dans `backend/.env`
+3. Vérifiez les logs dans `backend/logs/`
 
 ### Erreur "Cannot find module"
 
@@ -170,23 +149,34 @@ rm -rf node_modules package-lock.json
 npm install
 ```
 
-### Erreur Supabase
+### Erreur SQLite ou Database
 
-1. Vérifiez que les tables sont créées dans Supabase
-2. Vérifiez l'URL et la clé dans les fichiers `.env`
-3. Vérifiez que RLS est activé
+La base de données SQLite est créée automatiquement au démarrage. Si problème :
 
-**Consultez `GUIDE_INSTALLATION.md` pour plus de détails**
+```bash
+cd backend
+rm -rf database
+npm run dev  # Recréera la base automatiquement
+```
+
+### Erreur Puppeteer
+
+Sur macOS/Linux, si Puppeteer ne s'installe pas correctement :
+
+```bash
+cd backend
+npx puppeteer browsers install chrome
+```
 
 ## 📈 Évolutions futures
 
-- [ ] Authentification complète multi-utilisateurs
+- [ ] Authentification multi-utilisateurs
 - [ ] Système de crédits/abonnements
-- [ ] Notifications temps réel (websockets)
+- [ ] Notifications temps réel
 - [ ] Analyse avancée des données
 - [ ] Export Excel/JSON
 - [ ] Intégration CRM
-- [ ] API publique
+- [ ] Migration vers PostgreSQL (optionnel)
 
 ## 🏗️ Architecture
 
@@ -206,10 +196,20 @@ npm install
        │          │          │
        ▼          ▼          ▼
 ┌──────────┐ ┌─────────┐ ┌─────────┐
-│ Supabase │ │Puppeteer│ │ Winston │
+│  SQLite  │ │Puppeteer│ │ Winston │
 │   DB     │ │ Scraper │ │  Logs   │
 └──────────┘ └─────────┘ └─────────┘
 ```
+
+## 💾 Base de données
+
+La base de données SQLite est stockée dans `backend/database/inpi_scraper.db` et contient :
+
+- **users** : Table utilisateurs (mode démo uniquement)
+- **companies** : Données des entreprises scrapées
+- **scraping_jobs** : Historique des tâches de scraping
+
+La base est créée automatiquement au premier démarrage avec les tables et index nécessaires.
 
 ## 📄 Licence
 
@@ -217,11 +217,10 @@ MIT
 
 ## 🤝 Support
 
-Pour toute question, consultez :
-- `GUIDE_INSTALLATION.md` - Installation détaillée
-- `backend/SUPABASE_SETUP.md` - Configuration Supabase
-- Les logs du backend dans `backend/logs/`
+- Documentation complète dans ce fichier
+- Logs détaillés dans `backend/logs/`
+- Base de données locale SQLite sans configuration
 
 ---
 
-**Status:** ✅ Backend complètement fonctionnel avec Supabase
+**Status:** ✅ Application 100% fonctionnelle avec SQLite local (sans Supabase)

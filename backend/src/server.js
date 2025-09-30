@@ -3,7 +3,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 require('dotenv').config();
 
-const { testConnection } = require('./config/supabase');
+const { testConnection } = require('./config/database');
 const { generalLimiter } = require('./middleware/rateLimiter');
 const logger = require('./utils/logger');
 

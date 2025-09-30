@@ -1,4 +1,4 @@
-const { supabase } = require('../config/supabase');
+const { db } = require('../config/database');
 const createCsvWriter = require('csv-writer').createObjectCsvWriter;
 const path = require('path');
 const fs = require('fs').promises;
@@ -16,55 +16,82 @@ class CompaniesController {
         limit = 50,
         offset = 0,
         sortBy = 'created_at',
-        sortOrder = 'desc'
+        sortOrder = 'DESC'
       } = req.query;
 
-      let query = supabase
-        .from('companies')
-        .select('*', { count: 'exact' })
-        .eq('user_id', userId);
+      let query = `SELECT * FROM companies WHERE user_id = ?`;
+      const params = [userId];
 
       if (search) {
-        query = query.or(`denomination.ilike.%${search}%,siren.ilike.%${search}%`);
+        query += ` AND (denomination LIKE ? OR siren LIKE ? OR representatives LIKE ?)`;
+        const searchPattern = `%${search}%`;
+        params.push(searchPattern, searchPattern, searchPattern);
       }
 
       if (department) {
-        query = query.eq('department', department);
+        query += ` AND department = ?`;
+        params.push(department);
       }
 
       if (apeCode) {
-        query = query.eq('ape_code', apeCode);
+        query += ` AND ape_code = ?`;
+        params.push(apeCode);
       }
 
       if (legalForm) {
-        query = query.eq('legal_form', legalForm);
+        query += ` AND legal_form = ?`;
+        params.push(legalForm);
       }
 
       const allowedSortFields = ['denomination', 'siren', 'start_date', 'created_at', 'scraped_at'];
       if (allowedSortFields.includes(sortBy)) {
-        query = query.order(sortBy, { ascending: sortOrder.toLowerCase() === 'asc' });
+        query += ` ORDER BY ${sortBy} ${sortOrder.toUpperCase()}`;
       }
 
-      query = query.range(parseInt(offset), parseInt(offset) + parseInt(limit) - 1);
+      query += ` LIMIT ? OFFSET ?`;
+      params.push(parseInt(limit), parseInt(offset));
 
-      const { data: companies, error, count } = await query;
+      const companies = db.prepare(query).all(...params);
 
-      if (error) {
-        logger.error('Erreur Supabase lors de la récupération des entreprises:', error);
-        return res.status(500).json({
-          success: false,
-          error: 'Erreur lors de la récupération des données'
-        });
+      let countQuery = `SELECT COUNT(*) as total FROM companies WHERE user_id = ?`;
+      const countParams = [userId];
+
+      if (search) {
+        countQuery += ` AND (denomination LIKE ? OR siren LIKE ? OR representatives LIKE ?)`;
+        const searchPattern = `%${search}%`;
+        countParams.push(searchPattern, searchPattern, searchPattern);
       }
+
+      if (department) {
+        countQuery += ` AND department = ?`;
+        countParams.push(department);
+      }
+
+      if (apeCode) {
+        countQuery += ` AND ape_code = ?`;
+        countParams.push(apeCode);
+      }
+
+      if (legalForm) {
+        countQuery += ` AND legal_form = ?`;
+        countParams.push(legalForm);
+      }
+
+      const { total } = db.prepare(countQuery).get(...countParams);
+
+      const companiesWithParsedReps = companies.map(company => ({
+        ...company,
+        representatives: company.representatives ? JSON.parse(company.representatives) : []
+      }));
 
       res.json({
         success: true,
-        companies: companies || [],
-        total: count || 0,
+        companies: companiesWithParsedReps,
+        total,
         pagination: {
           limit: parseInt(limit),
           offset: parseInt(offset),
-          hasMore: parseInt(offset) + (companies?.length || 0) < (count || 0)
+          hasMore: parseInt(offset) + companies.length < total
         }
       });
 
@@ -82,20 +109,9 @@ class CompaniesController {
       const { id } = req.params;
       const userId = req.user.id || 'demo-user';
 
-      const { data: company, error } = await supabase
-        .from('companies')
-        .select('*')
-        .eq('id', id)
-        .eq('user_id', userId)
-        .maybeSingle();
-
-      if (error) {
-        logger.error('Erreur Supabase:', error);
-        return res.status(500).json({
-          success: false,
-          error: 'Erreur lors de la récupération des données'
-        });
-      }
+      const company = db.prepare(`
+        SELECT * FROM companies WHERE id = ? AND user_id = ?
+      `).get(id, userId);
 
       if (!company) {
         return res.status(404).json({
@@ -104,9 +120,14 @@ class CompaniesController {
         });
       }
 
+      const result = {
+        ...company,
+        representatives: company.representatives ? JSON.parse(company.representatives) : []
+      };
+
       res.json({
         success: true,
-        company
+        company: result
       });
 
     } catch (error) {
@@ -130,23 +151,16 @@ class CompaniesController {
         });
       }
 
-      const { error, count } = await supabase
-        .from('companies')
-        .delete({ count: 'exact' })
-        .in('id', companyIds)
-        .eq('user_id', userId);
+      const placeholders = companyIds.map(() => '?').join(',');
+      const stmt = db.prepare(`
+        DELETE FROM companies WHERE id IN (${placeholders}) AND user_id = ?
+      `);
 
-      if (error) {
-        logger.error('Erreur Supabase lors de la suppression:', error);
-        return res.status(500).json({
-          success: false,
-          error: 'Erreur lors de la suppression des données'
-        });
-      }
+      const result = stmt.run(...companyIds, userId);
 
       res.json({
         success: true,
-        message: `${count || 0} entreprise(s) supprimée(s)`
+        message: `${result.changes} entreprise(s) supprimée(s)`
       });
 
     } catch (error) {
@@ -163,27 +177,25 @@ class CompaniesController {
       const { companyIds = [] } = req.body;
       const userId = req.user.id;
 
-      let query = supabase
-        .from('companies')
-        .select('denomination, siren, start_date, representatives, legal_form, establishments, department, ape_code, address, postal_code, city, status')
-        .eq('user_id', userId)
-        .order('denomination');
+      let query = `
+        SELECT denomination, siren, start_date, representatives, legal_form,
+               establishments, department, ape_code, address, postal_code, city, status
+        FROM companies WHERE user_id = ?
+      `;
+
+      const params = [userId];
 
       if (companyIds.length > 0) {
-        query = query.in('id', companyIds);
+        const placeholders = companyIds.map(() => '?').join(',');
+        query += ` AND id IN (${placeholders})`;
+        params.push(...companyIds);
       }
 
-      const { data: rows, error } = await query;
+      query += ` ORDER BY denomination`;
 
-      if (error) {
-        logger.error('Erreur Supabase lors de l\'export:', error);
-        return res.status(500).json({
-          success: false,
-          error: 'Erreur lors de l\'export des données'
-        });
-      }
+      const rows = db.prepare(query).all(...params);
 
-      if (!rows || rows.length === 0) {
+      if (rows.length === 0) {
         return res.status(404).json({
           success: false,
           error: 'Aucune entreprise à exporter'
@@ -194,7 +206,7 @@ class CompaniesController {
         denomination: company.denomination,
         siren: company.siren,
         start_date: company.start_date || '',
-        representatives: Array.isArray(company.representatives) ? company.representatives.join('; ') : '',
+        representatives: company.representatives ? JSON.parse(company.representatives).join('; ') : '',
         legal_form: company.legal_form || '',
         establishments: company.establishments || 1,
         department: company.department || '',
@@ -256,63 +268,40 @@ class CompaniesController {
     try {
       const userId = req.user.id || 'demo-user';
 
-      const { count: total } = await supabase
-        .from('companies')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', userId);
+      const { total } = db.prepare(
+        'SELECT COUNT(*) as total FROM companies WHERE user_id = ?'
+      ).get(userId);
 
-      const oneMonthAgo = new Date();
-      oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+      const { monthly } = db.prepare(`
+        SELECT COUNT(*) as monthly FROM companies
+        WHERE user_id = ? AND scraped_at >= datetime('now', '-1 month')
+      `).get(userId);
 
-      const { count: monthly } = await supabase
-        .from('companies')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', userId)
-        .gte('scraped_at', oneMonthAgo.toISOString());
+      const departmentRows = db.prepare(`
+        SELECT department, COUNT(*) as count
+        FROM companies
+        WHERE user_id = ? AND department IS NOT NULL
+        GROUP BY department
+        ORDER BY count DESC
+        LIMIT 10
+      `).all(userId);
 
-      const { data: departmentRows } = await supabase
-        .from('companies')
-        .select('department')
-        .eq('user_id', userId)
-        .not('department', 'is', null);
-
-      const departmentMap = {};
-      (departmentRows || []).forEach(row => {
-        if (row.department) {
-          departmentMap[row.department] = (departmentMap[row.department] || 0) + 1;
-        }
-      });
-
-      const byDepartment = Object.entries(departmentMap)
-        .map(([department, count]) => ({ department, count }))
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 10);
-
-      const { data: apeRows } = await supabase
-        .from('companies')
-        .select('ape_code')
-        .eq('user_id', userId)
-        .not('ape_code', 'is', null);
-
-      const apeMap = {};
-      (apeRows || []).forEach(row => {
-        if (row.ape_code) {
-          apeMap[row.ape_code] = (apeMap[row.ape_code] || 0) + 1;
-        }
-      });
-
-      const byApeCode = Object.entries(apeMap)
-        .map(([ape_code, count]) => ({ ape_code, count }))
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 10);
+      const apeRows = db.prepare(`
+        SELECT ape_code, COUNT(*) as count
+        FROM companies
+        WHERE user_id = ? AND ape_code IS NOT NULL
+        GROUP BY ape_code
+        ORDER BY count DESC
+        LIMIT 10
+      `).all(userId);
 
       res.json({
         success: true,
         stats: {
           total: total || 0,
           monthly: monthly || 0,
-          byDepartment,
-          byApeCode
+          byDepartment: departmentRows,
+          byApeCode: apeRows
         }
       });
 

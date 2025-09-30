@@ -1,4 +1,4 @@
-const { supabase } = require('../config/supabase');
+const { db } = require('../config/database');
 const INPIScraper = require('../services/scraper');
 const { v4: uuidv4 } = require('uuid');
 const logger = require('../utils/logger');
@@ -22,25 +22,12 @@ class ScrapingController {
 
       const jobId = uuidv4();
 
-      const { error: insertError } = await supabase
-        .from('scraping_jobs')
-        .insert({
-          id: jobId,
-          user_id: userId,
-          ape_code: apeCode,
-          department: department,
-          siege_only: siegeOnly,
-          status: 'running',
-          started_at: new Date().toISOString()
-        });
+      const stmt = db.prepare(`
+        INSERT INTO scraping_jobs (id, user_id, ape_code, department, siege_only, status, started_at)
+        VALUES (?, ?, ?, ?, ?, 'running', datetime('now'))
+      `);
 
-      if (insertError) {
-        logger.error('Erreur lors de la création de la tâche:', insertError);
-        return res.status(500).json({
-          success: false,
-          error: 'Erreur lors de la création de la tâche'
-        });
-      }
+      stmt.run(jobId, userId, apeCode, department, siegeOnly ? 1 : 0);
 
       this.performScraping(jobId, userId, apeCode, department, siegeOnly);
 
@@ -67,70 +54,69 @@ class ScrapingController {
       await scraper.initialize();
 
       const onProgress = async (progressData) => {
-        await supabase
-          .from('scraping_jobs')
-          .update({
-            progress: progressData.progress,
-            found_results: progressData.foundResults,
-            processed_results: progressData.processedResults
-          })
-          .eq('id', jobId);
+        const stmt = db.prepare(`
+          UPDATE scraping_jobs
+          SET progress = ?, found_results = ?, processed_results = ?
+          WHERE id = ?
+        `);
+        stmt.run(progressData.progress, progressData.foundResults, progressData.processedResults, jobId);
       };
 
       const result = await scraper.scrapeCompanies(apeCode, department, siegeOnly, onProgress);
 
       if (result.companies.length > 0) {
-        const companies = result.companies.map(company => ({
-          id: uuidv4(),
-          user_id: userId,
-          denomination: company.denomination,
-          siren: company.siren,
-          start_date: company.startDate || null,
-          representatives: company.representatives || [],
-          legal_form: company.legalForm,
-          establishments: company.establishments,
-          department: department,
-          ape_code: apeCode,
-          address: company.address,
-          postal_code: company.postalCode,
-          city: company.city,
-          status: company.status || 'active',
-          scraped_at: new Date().toISOString()
-        }));
+        const insertStmt = db.prepare(`
+          INSERT OR REPLACE INTO companies
+          (id, user_id, denomination, siren, start_date, representatives, legal_form,
+           establishments, department, ape_code, address, postal_code, city, status, scraped_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        `);
 
-        const { error: insertError } = await supabase
-          .from('companies')
-          .upsert(companies, { onConflict: 'user_id,siren' });
+        const insertMany = db.transaction((companies) => {
+          for (const company of companies) {
+            insertStmt.run(
+              uuidv4(),
+              userId,
+              company.denomination,
+              company.siren,
+              company.startDate || null,
+              JSON.stringify(company.representatives || []),
+              company.legalForm,
+              company.establishments,
+              department,
+              apeCode,
+              company.address,
+              company.postalCode,
+              company.city,
+              company.status || 'active'
+            );
+          }
+        });
 
-        if (insertError) {
-          logger.error('Erreur lors de l\'insertion des entreprises:', insertError);
-        }
+        insertMany(result.companies);
       }
 
-      await supabase
-        .from('scraping_jobs')
-        .update({
-          status: 'completed',
-          progress: 100,
-          found_results: result.totalResults,
-          processed_results: result.companies.length,
-          completed_at: new Date().toISOString()
-        })
-        .eq('id', jobId);
+      const updateStmt = db.prepare(`
+        UPDATE scraping_jobs
+        SET status = 'completed', progress = 100, found_results = ?,
+            processed_results = ?, completed_at = datetime('now')
+        WHERE id = ?
+      `);
+
+      updateStmt.run(result.totalResults, result.companies.length, jobId);
 
       logger.info(`Scraping terminé pour le job ${jobId}: ${result.companies.length} entreprises`);
 
     } catch (error) {
       logger.error(`Erreur lors du scraping ${jobId}:`, error);
 
-      await supabase
-        .from('scraping_jobs')
-        .update({
-          status: 'failed',
-          error_message: error.message,
-          completed_at: new Date().toISOString()
-        })
-        .eq('id', jobId);
+      const updateStmt = db.prepare(`
+        UPDATE scraping_jobs
+        SET status = 'failed', error_message = ?, completed_at = datetime('now')
+        WHERE id = ?
+      `);
+
+      updateStmt.run(error.message, jobId);
     } finally {
       await scraper.close();
       this.activeScraping.delete(jobId);
@@ -142,20 +128,9 @@ class ScrapingController {
       const { jobId } = req.params;
       const userId = req.user.id;
 
-      const { data: job, error } = await supabase
-        .from('scraping_jobs')
-        .select('*')
-        .eq('id', jobId)
-        .eq('user_id', userId)
-        .maybeSingle();
-
-      if (error) {
-        logger.error('Erreur Supabase:', error);
-        return res.status(500).json({
-          success: false,
-          error: 'Erreur lors de la récupération du statut'
-        });
-      }
+      const job = db.prepare(`
+        SELECT * FROM scraping_jobs WHERE id = ? AND user_id = ?
+      `).get(jobId, userId);
 
       if (!job) {
         return res.status(404).json({
@@ -183,24 +158,16 @@ class ScrapingController {
       const userId = req.user.id;
       const { limit = 10, offset = 0 } = req.query;
 
-      const { data: jobs, error } = await supabase
-        .from('scraping_jobs')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
-        .range(parseInt(offset), parseInt(offset) + parseInt(limit) - 1);
-
-      if (error) {
-        logger.error('Erreur Supabase:', error);
-        return res.status(500).json({
-          success: false,
-          error: 'Erreur lors de la récupération des tâches'
-        });
-      }
+      const jobs = db.prepare(`
+        SELECT * FROM scraping_jobs
+        WHERE user_id = ?
+        ORDER BY created_at DESC
+        LIMIT ? OFFSET ?
+      `).all(userId, parseInt(limit), parseInt(offset));
 
       res.json({
         success: true,
-        jobs: jobs || []
+        jobs
       });
 
     } catch (error) {
@@ -217,20 +184,9 @@ class ScrapingController {
       const { jobId } = req.params;
       const userId = req.user.id;
 
-      const { data: job, error } = await supabase
-        .from('scraping_jobs')
-        .select('status')
-        .eq('id', jobId)
-        .eq('user_id', userId)
-        .maybeSingle();
-
-      if (error) {
-        logger.error('Erreur Supabase:', error);
-        return res.status(500).json({
-          success: false,
-          error: 'Erreur lors de la récupération de la tâche'
-        });
-      }
+      const job = db.prepare(`
+        SELECT status FROM scraping_jobs WHERE id = ? AND user_id = ?
+      `).get(jobId, userId);
 
       if (!job) {
         return res.status(404).json({
@@ -252,14 +208,14 @@ class ScrapingController {
         this.activeScraping.delete(jobId);
       }
 
-      await supabase
-        .from('scraping_jobs')
-        .update({
-          status: 'failed',
-          error_message: 'Arrêté par l\'utilisateur',
-          completed_at: new Date().toISOString()
-        })
-        .eq('id', jobId);
+      const stmt = db.prepare(`
+        UPDATE scraping_jobs
+        SET status = 'failed', error_message = 'Arrêté par l\'utilisateur',
+            completed_at = datetime('now')
+        WHERE id = ?
+      `);
+
+      stmt.run(jobId);
 
       res.json({
         success: true,
