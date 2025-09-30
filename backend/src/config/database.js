@@ -66,6 +66,12 @@ function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_scraping_jobs_user_id ON scraping_jobs(user_id);
     CREATE INDEX IF NOT EXISTS idx_scraping_jobs_status ON scraping_jobs(status);
   `);
+
+  const userExists = db.prepare('SELECT id FROM users WHERE id = ?').get('demo-user');
+  if (!userExists) {
+    db.prepare('INSERT INTO users (id, email) VALUES (?, ?)').run('demo-user', 'demo@example.com');
+    console.log('✅ Utilisateur demo-user créé');
+  }
 }
 
 function testConnection() {
