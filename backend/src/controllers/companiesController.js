@@ -1,4 +1,4 @@
-const { allQuery, getQuery, runQuery } = require('../config/database');
+const { supabase } = require('../config/supabase');
 const createCsvWriter = require('csv-writer').createObjectCsvWriter;
 const path = require('path');
 const fs = require('fs').promises;
@@ -16,96 +16,55 @@ class CompaniesController {
         limit = 50,
         offset = 0,
         sortBy = 'created_at',
-        sortOrder = 'DESC'
+        sortOrder = 'desc'
       } = req.query;
 
-      let query = `
-        SELECT id, denomination, siren, start_date, representatives, legal_form, 
-               establishments, department, ape_code, address, postal_code, city, 
-               status, scraped_at, created_at
-        FROM companies 
-        WHERE user_id = ?
-      `;
-      
-      const params = [userId];
+      let query = supabase
+        .from('companies')
+        .select('*', { count: 'exact' })
+        .eq('user_id', userId);
 
-      // Filtres
       if (search) {
-        query += ` AND (denomination LIKE ? OR siren LIKE ? OR JSON_SEARCH(representatives, 'one', ?) IS NOT NULL)`;
-        const searchPattern = `%${search}%`;
-        params.push(searchPattern, searchPattern, searchPattern);
+        query = query.or(`denomination.ilike.%${search}%,siren.ilike.%${search}%`);
       }
 
       if (department) {
-        query += ` AND department = ?`;
-        params.push(department);
+        query = query.eq('department', department);
       }
 
       if (apeCode) {
-        query += ` AND ape_code = ?`;
-        params.push(apeCode);
+        query = query.eq('ape_code', apeCode);
       }
 
       if (legalForm) {
-        query += ` AND legal_form = ?`;
-        params.push(legalForm);
+        query = query.eq('legal_form', legalForm);
       }
 
-      // Tri
       const allowedSortFields = ['denomination', 'siren', 'start_date', 'created_at', 'scraped_at'];
-      const allowedSortOrders = ['ASC', 'DESC'];
-      
-      if (allowedSortFields.includes(sortBy) && allowedSortOrders.includes(sortOrder.toUpperCase())) {
-        query += ` ORDER BY ${sortBy} ${sortOrder.toUpperCase()}`;
+      if (allowedSortFields.includes(sortBy)) {
+        query = query.order(sortBy, { ascending: sortOrder.toLowerCase() === 'asc' });
       }
 
-      // Pagination
-      query += ` LIMIT ? OFFSET ?`;
-      params.push(parseInt(limit), parseInt(offset));
+      query = query.range(parseInt(offset), parseInt(offset) + parseInt(limit) - 1);
 
-      const rows = await allQuery(query, params);
+      const { data: companies, error, count } = await query;
 
-      // Compter le total
-      let countQuery = `SELECT COUNT(*) as total FROM companies WHERE user_id = ?`;
-      const countParams = [userId];
-
-      if (search) {
-        countQuery += ` AND (denomination LIKE ? OR siren LIKE ? OR JSON_SEARCH(representatives, 'one', ?) IS NOT NULL)`;
-        const searchPattern = `%${search}%`;
-        countParams.push(searchPattern, searchPattern, searchPattern);
+      if (error) {
+        logger.error('Erreur Supabase lors de la récupération des entreprises:', error);
+        return res.status(500).json({
+          success: false,
+          error: 'Erreur lors de la récupération des données'
+        });
       }
-
-      if (department) {
-        countQuery += ` AND department = ?`;
-        countParams.push(department);
-      }
-
-      if (apeCode) {
-        countQuery += ` AND ape_code = ?`;
-        countParams.push(apeCode);
-      }
-
-      if (legalForm) {
-        countQuery += ` AND legal_form = ?`;
-        countParams.push(legalForm);
-      }
-
-      const countResult = await getQuery(countQuery, countParams);
-
-      // Parser les représentants JSON
-      const companies = rows.map(company => ({
-        ...company,
-        representatives: company.representatives ? JSON.parse(company.representatives) : []
-      }));
 
       res.json({
         success: true,
-        companies,
-        total: countResult.total,
+        companies: companies || [],
+        total: count || 0,
         pagination: {
           limit: parseInt(limit),
           offset: parseInt(offset),
-          hasMore: parseInt(offset) + companies.length < countResult.total
+          hasMore: parseInt(offset) + (companies?.length || 0) < (count || 0)
         }
       });
 
@@ -123,10 +82,20 @@ class CompaniesController {
       const { id } = req.params;
       const userId = req.user.id || 'demo-user';
 
-      const company = await getQuery(`
-        SELECT * FROM companies 
-        WHERE id = ? AND user_id = ?
-      `, [id, userId]);
+      const { data: company, error } = await supabase
+        .from('companies')
+        .select('*')
+        .eq('id', id)
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (error) {
+        logger.error('Erreur Supabase:', error);
+        return res.status(500).json({
+          success: false,
+          error: 'Erreur lors de la récupération des données'
+        });
+      }
 
       if (!company) {
         return res.status(404).json({
@@ -135,14 +104,9 @@ class CompaniesController {
         });
       }
 
-      const result = {
-        ...company,
-        representatives: company.representatives ? JSON.parse(company.representatives) : []
-      };
-
       res.json({
         success: true,
-        company: result
+        company
       });
 
     } catch (error) {
@@ -166,15 +130,23 @@ class CompaniesController {
         });
       }
 
-      const placeholders = companyIds.map(() => '?').join(',');
-      const result = await runQuery(`
-        DELETE FROM companies 
-        WHERE id IN (${placeholders}) AND user_id = ?
-      `, [...companyIds, userId]);
+      const { error, count } = await supabase
+        .from('companies')
+        .delete({ count: 'exact' })
+        .in('id', companyIds)
+        .eq('user_id', userId);
+
+      if (error) {
+        logger.error('Erreur Supabase lors de la suppression:', error);
+        return res.status(500).json({
+          success: false,
+          error: 'Erreur lors de la suppression des données'
+        });
+      }
 
       res.json({
         success: true,
-        message: `${result.changes} entreprise(s) supprimée(s)`
+        message: `${count || 0} entreprise(s) supprimée(s)`
       });
 
     } catch (error) {
@@ -191,38 +163,38 @@ class CompaniesController {
       const { companyIds = [] } = req.body;
       const userId = req.user.id;
 
-      let query = `
-        SELECT denomination, siren, start_date, representatives, legal_form, 
-               establishments, department, ape_code, address, postal_code, city, status
-        FROM companies 
-        WHERE user_id = ?
-      `;
-      
-      const params = [userId];
+      let query = supabase
+        .from('companies')
+        .select('denomination, siren, start_date, representatives, legal_form, establishments, department, ape_code, address, postal_code, city, status')
+        .eq('user_id', userId)
+        .order('denomination');
 
       if (companyIds.length > 0) {
-        const placeholders = companyIds.map(() => '?').join(',');
-        query += ` AND id IN (${placeholders})`;
-        params.push(...companyIds);
+        query = query.in('id', companyIds);
       }
 
-      query += ` ORDER BY denomination`;
+      const { data: rows, error } = await query;
 
-      const rows = await allQuery(query, params);
+      if (error) {
+        logger.error('Erreur Supabase lors de l\'export:', error);
+        return res.status(500).json({
+          success: false,
+          error: 'Erreur lors de l\'export des données'
+        });
+      }
 
-      if (rows.length === 0) {
+      if (!rows || rows.length === 0) {
         return res.status(404).json({
           success: false,
           error: 'Aucune entreprise à exporter'
         });
       }
 
-      // Préparer les données pour le CSV
       const csvData = rows.map(company => ({
         denomination: company.denomination,
         siren: company.siren,
-        start_date: company.start_date ? company.start_date.toISOString().split('T')[0] : '',
-        representatives: company.representatives ? JSON.parse(company.representatives).join('; ') : '',
+        start_date: company.start_date || '',
+        representatives: Array.isArray(company.representatives) ? company.representatives.join('; ') : '',
         legal_form: company.legal_form || '',
         establishments: company.establishments || 1,
         department: company.department || '',
@@ -233,11 +205,9 @@ class CompaniesController {
         status: company.status || 'active'
       }));
 
-      // Créer le fichier CSV temporaire
       const fileName = `inpi_export_${Date.now()}.csv`;
       const filePath = path.join(__dirname, '../../temp', fileName);
 
-      // Créer le dossier temp s'il n'existe pas
       await fs.mkdir(path.dirname(filePath), { recursive: true });
 
       const csvWriter = createCsvWriter({
@@ -261,13 +231,11 @@ class CompaniesController {
 
       await csvWriter.writeRecords(csvData);
 
-      // Envoyer le fichier
       res.download(filePath, `inpi_export_${new Date().toISOString().split('T')[0]}.csv`, async (err) => {
         if (err) {
           logger.error('Erreur lors du téléchargement:', err);
         }
-        
-        // Supprimer le fichier temporaire
+
         try {
           await fs.unlink(filePath);
         } catch (unlinkError) {
@@ -288,41 +256,63 @@ class CompaniesController {
     try {
       const userId = req.user.id || 'demo-user';
 
-      const totalResult = await getQuery(
-        'SELECT COUNT(*) as total FROM companies WHERE user_id = ?',
-        [userId]
-      );
+      const { count: total } = await supabase
+        .from('companies')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId);
 
-      const monthlyResult = await getQuery(`
-        SELECT COUNT(*) as monthly FROM companies 
-        WHERE user_id = ? AND scraped_at >= DATE_SUB(NOW(), INTERVAL 1 MONTH)
-      `, [userId]);
+      const oneMonthAgo = new Date();
+      oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
 
-      const departmentRows = await allQuery(`
-        SELECT department, COUNT(*) as count 
-        FROM companies 
-        WHERE user_id = ? 
-        GROUP BY department 
-        ORDER BY count DESC 
-        LIMIT 10
-      `, [userId]);
+      const { count: monthly } = await supabase
+        .from('companies')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .gte('scraped_at', oneMonthAgo.toISOString());
 
-      const apeRows = await allQuery(`
-        SELECT ape_code, COUNT(*) as count 
-        FROM companies 
-        WHERE user_id = ? 
-        GROUP BY ape_code 
-        ORDER BY count DESC 
-        LIMIT 10
-      `, [userId]);
+      const { data: departmentRows } = await supabase
+        .from('companies')
+        .select('department')
+        .eq('user_id', userId)
+        .not('department', 'is', null);
+
+      const departmentMap = {};
+      (departmentRows || []).forEach(row => {
+        if (row.department) {
+          departmentMap[row.department] = (departmentMap[row.department] || 0) + 1;
+        }
+      });
+
+      const byDepartment = Object.entries(departmentMap)
+        .map(([department, count]) => ({ department, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10);
+
+      const { data: apeRows } = await supabase
+        .from('companies')
+        .select('ape_code')
+        .eq('user_id', userId)
+        .not('ape_code', 'is', null);
+
+      const apeMap = {};
+      (apeRows || []).forEach(row => {
+        if (row.ape_code) {
+          apeMap[row.ape_code] = (apeMap[row.ape_code] || 0) + 1;
+        }
+      });
+
+      const byApeCode = Object.entries(apeMap)
+        .map(([ape_code, count]) => ({ ape_code, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10);
 
       res.json({
         success: true,
         stats: {
-          total: totalResult.total,
-          monthly: monthlyResult.monthly,
-          byDepartment: departmentRows,
-          byApeCode: apeRows
+          total: total || 0,
+          monthly: monthly || 0,
+          byDepartment,
+          byApeCode
         }
       });
 

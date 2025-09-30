@@ -1,56 +1,46 @@
-const jwt = require('jsonwebtoken');
-const { getQuery } = require('../config/database');
+const { supabase } = require('../config/supabase');
 const logger = require('../utils/logger');
 
-// Middleware d'authentification avec token JWT
 const authenticateToken = async (req, res, next) => {
   try {
     const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+    const token = authHeader && authHeader.split(' ')[1];
 
-    // Si pas de token, créer un utilisateur demo pour les tests
     if (!token) {
       req.user = {
         id: 'demo-user',
-        email: 'demo@example.com',
-        subscription_plan: 'pro'
+        email: 'demo@example.com'
       };
       return next();
     }
 
-    // Vérifier le token JWT
-    jwt.verify(token, process.env.JWT_SECRET, async (err, decoded) => {
-      if (err) {
-        return res.status(403).json({
-          success: false,
-          error: 'Token invalide'
-        });
-      }
+    const { data: { user }, error } = await supabase.auth.getUser(token);
 
-      try {
-        // Récupérer les informations utilisateur depuis la base
-        const user = await getQuery(
-          'SELECT id, email, subscription_plan FROM users WHERE id = ?',
-          [decoded.userId]
-        );
+    if (error || !user) {
+      return res.status(403).json({
+        success: false,
+        error: 'Token invalide ou expiré'
+      });
+    }
 
-        if (!user) {
-          return res.status(404).json({
-            success: false,
-            error: 'Utilisateur non trouvé'
-          });
-        }
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', user.id)
+      .maybeSingle();
 
-        req.user = user;
-        next();
-      } catch (dbError) {
-        logger.error('Erreur lors de la vérification utilisateur:', dbError);
-        res.status(500).json({
-          success: false,
-          error: 'Erreur interne du serveur'
-        });
-      }
-    });
+    if (userError) {
+      logger.error('Erreur lors de la récupération des données utilisateur:', userError);
+    }
+
+    req.user = {
+      id: user.id,
+      email: user.email,
+      ...userData
+    };
+    req.supabaseToken = token;
+
+    next();
   } catch (error) {
     logger.error('Erreur dans authenticateToken:', error);
     res.status(500).json({
@@ -60,7 +50,6 @@ const authenticateToken = async (req, res, next) => {
   }
 };
 
-// Middleware optionnel - permet l'accès sans token
 const optionalAuth = async (req, res, next) => {
   try {
     const authHeader = req.headers['authorization'];
@@ -69,54 +58,44 @@ const optionalAuth = async (req, res, next) => {
     if (!token) {
       req.user = {
         id: 'demo-user',
-        email: 'demo@example.com',
-        subscription_plan: 'pro'
+        email: 'demo@example.com'
       };
       return next();
     }
 
-    // Si token présent, le vérifier
-    jwt.verify(token, process.env.JWT_SECRET, async (err, decoded) => {
-      if (err) {
-        req.user = {
-          id: 'demo-user',
-          email: 'demo@example.com',
-          subscription_plan: 'pro'
-        };
-        return next();
-      }
+    const { data: { user }, error } = await supabase.auth.getUser(token);
 
-      try {
-        const user = await getQuery(
-          'SELECT id, email, subscription_plan FROM users WHERE id = ?',
-          [decoded.userId]
-        );
+    if (error || !user) {
+      req.user = {
+        id: 'demo-user',
+        email: 'demo@example.com'
+      };
+      return next();
+    }
 
-        if (!user) {
-          req.user = {
-            id: 'demo-user',
-            email: 'demo@example.com',
-            subscription_plan: 'pro'
-          };
-        } else {
-          req.user = user;
-        }
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', user.id)
+      .maybeSingle();
 
-        next();
-      } catch (dbError) {
-        req.user = {
-          id: 'demo-user',
-          email: 'demo@example.com',
-          subscription_plan: 'pro'
-        };
-        next();
-      }
-    });
+    if (userError) {
+      logger.error('Erreur lors de la récupération des données utilisateur:', userError);
+    }
+
+    req.user = {
+      id: user.id,
+      email: user.email,
+      ...userData
+    };
+    req.supabaseToken = token;
+
+    next();
   } catch (error) {
+    logger.error('Erreur dans optionalAuth:', error);
     req.user = {
       id: 'demo-user',
-      email: 'demo@example.com',
-      subscription_plan: 'pro'
+      email: 'demo@example.com'
     };
     next();
   }
