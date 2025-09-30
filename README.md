@@ -1,177 +1,227 @@
-# INPI Data Scraper SaaS Tool
+# INPI Data Scraper - Application SaaS ✅
 
-Un outil SaaS professionnel pour extraire et gérer les données d'entreprises depuis le site INPI (Institut National de la Propriété Industrielle).
+Application web professionnelle pour extraire et gérer les données d'entreprises depuis le site INPI (Institut National de la Propriété Industrielle).
 
-## 🚀 Fonctionnalités
+## 🚀 Démarrage rapide
 
-### Interface Frontend (Actuelle)
-- ✅ Dashboard avec statistiques et activité récente
-- ✅ Configuration de scraping avec filtres APE, département
-- ✅ Gestion des données avec recherche et filtrage
-- ✅ Export CSV des données sélectionnées
-- ✅ Paramètres avancés et configuration
-- ✅ Interface responsive et moderne
+**Voir `GUIDE_INSTALLATION.md` pour les instructions détaillées**
 
-### Backend Requis (À Implémenter)
-- ⚠️ **API de scraping** - Extraction réelle des données INPI
-- ⚠️ **Base de données** - Stockage MySQL/PostgreSQL
-- ⚠️ **Authentification** - Système d'utilisateurs
-- ⚠️ **Rate limiting** - Respect des limites INPI
-- ⚠️ **Queue system** - Gestion des tâches de scraping
+### 1. Créer les tables Supabase
 
-## 📋 Données Extraites
+Exécutez le SQL fourni dans le guide d'installation.
 
-L'outil récupère les informations suivantes pour chaque entreprise :
-- **Dénomination/Nom** de l'entreprise
-- **Début d'activité** (date de création)
-- **SIREN** (numéro d'identification)
-- **Représentants** (dirigeants et représentants légaux)
-- **Forme juridique** (SARL, SAS, etc.)
-- **Établissements** (nombre d'établissements)
+### 2. Installer et démarrer le backend
 
-## 🔧 Configuration Backend Nécessaire
-
-### 1. API Backend (Node.js/Express recommandé)
-
-```javascript
-// Exemple d'endpoints requis
-POST /api/scrape          // Lancer un scraping
-GET  /api/companies       // Récupérer les données
-POST /api/export/csv      // Exporter en CSV
-DELETE /api/companies     // Supprimer des données
-GET  /api/test-db         // Tester la connexion DB
-```
-
-### 2. Base de Données
-
-```sql
--- Table des entreprises
-CREATE TABLE companies (
-    id VARCHAR(36) PRIMARY KEY,
-    denomination VARCHAR(255) NOT NULL,
-    siren VARCHAR(9) UNIQUE NOT NULL,
-    start_date DATE,
-    representatives JSON,
-    legal_form VARCHAR(50),
-    establishments INT DEFAULT 1,
-    department VARCHAR(3),
-    ape_code VARCHAR(5),
-    scraped_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
-
--- Index pour les recherches
-CREATE INDEX idx_siren ON companies(siren);
-CREATE INDEX idx_department ON companies(department);
-CREATE INDEX idx_ape_code ON companies(ape_code);
-CREATE INDEX idx_denomination ON companies(denomination);
-```
-
-### 3. Variables d'Environnement
-
-```env
-# API Configuration
-REACT_APP_API_URL=http://localhost:3001/api
-
-# Database (Backend)
-DB_HOST=localhost
-DB_PORT=3306
-DB_NAME=inpi_scraper
-DB_USER=your_username
-DB_PASSWORD=your_password
-
-# Scraping Configuration
-SCRAPING_DELAY=1000          # Délai entre requêtes (ms)
-MAX_CONCURRENT_REQUESTS=3    # Requêtes simultanées max
-REQUEST_TIMEOUT=30000        # Timeout par requête (ms)
-```
-
-## ⚖️ Considérations Légales
-
-### Respect des Conditions d'Utilisation
-- ✅ Respecter les robots.txt du site INPI
-- ✅ Implémenter un délai entre les requêtes
-- ✅ Limiter le nombre de requêtes simultanées
-- ✅ Respecter les conditions d'utilisation INPI
-
-### RGPD et Protection des Données
-- ✅ Informer les utilisateurs sur l'utilisation des données
-- ✅ Permettre la suppression des données
-- ✅ Sécuriser le stockage des informations
-- ✅ Respecter les droits des personnes concernées
-
-## 🛠️ Installation et Développement
-
-### Frontend (Actuel)
-```bash
-npm install
-npm run dev
-```
-
-### Backend (À Développer)
-```bash
-# Exemple avec Node.js/Express
-mkdir inpi-scraper-backend
-cd inpi-scraper-backend
-npm init -y
-npm install express mysql2 puppeteer cors helmet rate-limiter-flexible
-```
-
-## 📊 Architecture Recommandée
-
-```
-Frontend (React/TypeScript)
-    ↓ HTTP API
-Backend (Node.js/Express)
-    ↓ SQL
-Base de Données (MySQL/PostgreSQL)
-    ↓ Queue
-Système de Queue (Redis/Bull)
-    ↓ Scraping
-Service de Scraping (Puppeteer/Playwright)
-```
-
-## 🔒 Sécurité
-
-- **Rate Limiting** : Limiter les requêtes par utilisateur
-- **Authentification** : JWT ou sessions sécurisées
-- **Validation** : Valider toutes les entrées utilisateur
-- **HTTPS** : Chiffrement des communications
-- **Logs** : Journalisation des activités
-
-## 📈 Évolutions Futures
-
-- [ ] Authentification multi-utilisateurs
-- [ ] Système de crédits/abonnements
-- [ ] API publique pour intégrations
-- [ ] Notifications en temps réel
-- [ ] Analyse et visualisation des données
-- [ ] Export vers d'autres formats (Excel, JSON)
-- [ ] Intégration avec des CRM externes
-
----
-
-## 🚀 Démarrage Rapide
-
-### 1. Frontend
-```bash
-npm install
-npm run dev
-```
-
-### 2. Backend (Optionnel - pour données réelles)
 ```bash
 cd backend
 npm install
-cp .env.example .env
-# Configurer MySQL dans .env
-npm run setup-db
 npm run dev
 ```
 
-### 3. Utilisation
-- **Sans backend** : Interface de démonstration
-- **Avec backend** : Données réelles + scraping INPI
+Le backend démarre sur http://localhost:3001
 
-**Note** : L'application fonctionne en mode démonstration par défaut. Pour utiliser le scraping réel, démarrez le backend et configurez MySQL.
+### 3. Installer et démarrer le frontend
+
+```bash
+npm install
+npm run dev
+```
+
+Le frontend s'ouvre sur http://localhost:5173
+
+## ✅ Fonctionnalités
+
+### Interface Frontend
+- **Dashboard** : Statistiques en temps réel et activité récente
+- **Scraper** : Configuration avec filtres APE et département
+- **Gestionnaire de données** : Recherche, filtrage et pagination
+- **Export CSV** : Export des données sélectionnées
+- **Paramètres** : Configuration avancée
+
+### Backend API (Implémenté)
+- ✅ Scraping automatisé avec Puppeteer
+- ✅ Base de données Supabase PostgreSQL
+- ✅ API REST complète
+- ✅ Rate limiting
+- ✅ Gestion des tâches de scraping
+- ✅ Export CSV
+- ✅ Authentification Supabase (optionnelle en dev)
+
+## 📊 Données extraites
+
+- Dénomination de l'entreprise
+- SIREN (numéro d'identification)
+- Date de début d'activité
+- Représentants légaux
+- Forme juridique (SARL, SAS, etc.)
+- Nombre d'établissements
+- Code APE et département
+- Adresse complète
+
+## 🔧 Technologies
+
+**Frontend**
+- React + TypeScript
+- Vite
+- Tailwind CSS
+- Lucide Icons
+- Supabase Client
+
+**Backend**
+- Node.js + Express
+- Supabase (PostgreSQL + Auth)
+- Puppeteer (scraping)
+- Winston (logging)
+- Express Rate Limit
+
+## 📁 Structure du projet
+
+```
+.
+├── src/                    # Code frontend React
+│   ├── components/        # Composants React
+│   │   ├── Dashboard.tsx
+│   │   ├── Scraper.tsx
+│   │   ├── DataManager.tsx
+│   │   └── Settings.tsx
+│   └── services/          # Services API
+│       └── api.ts
+├── backend/               # Code backend Node.js
+│   └── src/
+│       ├── config/        # Configuration Supabase
+│       ├── controllers/   # Logique métier
+│       │   ├── authController.js
+│       │   ├── companiesController.js
+│       │   └── scrapingController.js
+│       ├── middleware/    # Middlewares Express
+│       ├── routes/        # Routes API
+│       ├── services/      # Service de scraping
+│       │   └── scraper.js
+│       └── server.js
+├── GUIDE_INSTALLATION.md  # Guide détaillé
+└── README.md
+```
+
+## 🌐 API Endpoints
+
+```
+POST   /api/auth/register        # Inscription
+POST   /api/auth/login           # Connexion
+GET    /api/auth/profile         # Profil utilisateur
+
+POST   /api/scraping/start       # Démarrer un scraping
+GET    /api/scraping/status/:id  # Statut d'une tâche
+POST   /api/scraping/stop/:id    # Arrêter un scraping
+GET    /api/scraping/jobs        # Liste des tâches
+
+GET    /api/companies            # Liste des entreprises
+GET    /api/companies/:id        # Détails d'une entreprise
+DELETE /api/companies            # Supprimer des entreprises
+POST   /api/companies/export/csv # Export CSV
+GET    /api/companies/stats      # Statistiques
+
+GET    /api/health               # Santé de l'API
+```
+
+## 🔐 Sécurité
+
+- Row Level Security (RLS) sur toutes les tables Supabase
+- Rate limiting sur l'API (100 req/15min)
+- Validation des entrées utilisateur
+- Authentification Supabase (optionnelle en dev)
+- Mode démonstration sécurisé
+- Logs Winston pour l'audit
+
+## 🔄 Mode démonstration
+
+L'application fonctionne en mode démonstration par défaut :
+- Pas d'authentification requise
+- Les données sont associées à `user_id='demo-user'`
+- Toutes les fonctionnalités sont accessibles
+- Idéal pour les tests et la démonstration
+
+## ⚠️ Considérations légales
+
+### Respect des Conditions d'Utilisation
+- ✅ Délai de 2 secondes entre les requêtes
+- ✅ Maximum 3 requêtes simultanées
+- ✅ Timeout de 30 secondes par requête
+- ✅ User-Agent configuré
+
+### RGPD et Protection des Données
+- ✅ Données sécurisées avec RLS
+- ✅ Suppression des données possible
+- ✅ Isolation des données par utilisateur
+- ✅ Stockage chiffré (Supabase)
+
+## 🛠️ Dépannage
+
+### Erreur "Backend non disponible"
+
+1. Vérifiez que le backend est démarré : `cd backend && npm run dev`
+2. Testez l'API : http://localhost:3001/api/health
+3. Vérifiez la configuration dans `backend/.env`
+
+### Erreur "Cannot find module"
+
+```bash
+cd backend
+rm -rf node_modules package-lock.json
+npm install
+```
+
+### Erreur Supabase
+
+1. Vérifiez que les tables sont créées dans Supabase
+2. Vérifiez l'URL et la clé dans les fichiers `.env`
+3. Vérifiez que RLS est activé
+
+**Consultez `GUIDE_INSTALLATION.md` pour plus de détails**
+
+## 📈 Évolutions futures
+
+- [ ] Authentification complète multi-utilisateurs
+- [ ] Système de crédits/abonnements
+- [ ] Notifications temps réel (websockets)
+- [ ] Analyse avancée des données
+- [ ] Export Excel/JSON
+- [ ] Intégration CRM
+- [ ] API publique
+
+## 🏗️ Architecture
+
+```
+┌─────────────┐
+│  Frontend   │  React + TypeScript + Vite
+│ :5173       │
+└──────┬──────┘
+       │ REST API
+       ▼
+┌─────────────┐
+│  Backend    │  Node.js + Express
+│ :3001       │
+└──────┬──────┘
+       │
+       ├──────────┬──────────┐
+       │          │          │
+       ▼          ▼          ▼
+┌──────────┐ ┌─────────┐ ┌─────────┐
+│ Supabase │ │Puppeteer│ │ Winston │
+│   DB     │ │ Scraper │ │  Logs   │
+└──────────┘ └─────────┘ └─────────┘
+```
+
+## 📄 Licence
+
+MIT
+
+## 🤝 Support
+
+Pour toute question, consultez :
+- `GUIDE_INSTALLATION.md` - Installation détaillée
+- `backend/SUPABASE_SETUP.md` - Configuration Supabase
+- Les logs du backend dans `backend/logs/`
+
+---
+
+**Status:** ✅ Backend complètement fonctionnel avec Supabase
