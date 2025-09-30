@@ -8,7 +8,7 @@ class ScrapingController {
     this.activeScraping = new Map();
   }
 
-  async startScraping(req, res) {
+  startScraping = async (req, res) => {
     try {
       const { apeCode, department, siegeOnly = true } = req.body;
       const userId = req.user.id || 'demo-user';
@@ -123,7 +123,7 @@ class ScrapingController {
     }
   }
 
-  async getScrapingStatus(req, res) {
+  getScrapingStatus = async (req, res) => {
     try {
       const { jobId } = req.params;
       const userId = req.user.id;
@@ -153,7 +153,7 @@ class ScrapingController {
     }
   }
 
-  async getUserScrapingJobs(req, res) {
+  getUserScrapingJobs = async (req, res) => {
     try {
       const userId = req.user.id;
       const { limit = 10, offset = 0 } = req.query;
@@ -179,7 +179,7 @@ class ScrapingController {
     }
   }
 
-  async stopScraping(req, res) {
+  stopScraping = async (req, res) => {
     try {
       const { jobId } = req.params;
       const userId = req.user.id;
