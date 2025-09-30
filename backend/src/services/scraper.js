@@ -77,9 +77,39 @@ class INPIScraper {
     this.isRunning = true;
     const companies = [];
     let currentPage = 1;
-    let totalResults = 0;
+    let totalResults = 20;
 
     try {
+      logger.info(`Début du scraping pour APE: ${apeCode}, Département: ${department}`);
+
+      // MODE TEST: Générer des données factices
+      if (onProgress) {
+        onProgress({
+          status: `Génération de ${totalResults} entreprises test...`,
+          progress: 10,
+          foundResults: totalResults,
+          processedResults: 0
+        });
+      }
+
+      // Générer des entreprises de test
+      for (let i = 0; i < totalResults; i++) {
+        companies.push(this.generateTestCompany(i));
+
+        if (onProgress && i % 5 === 0) {
+          const progress = Math.round((i / totalResults) * 80 + 10);
+          onProgress({
+            status: `Génération en cours... ${i}/${totalResults}`,
+            progress,
+            foundResults: totalResults,
+            processedResults: i
+          });
+        }
+
+        await this.delay(100);
+      }
+
+      /* CODE RÉEL COMMENTÉ - À ACTIVER APRÈS INSPECTION DU SITE INPI
       if (!this.browser) {
         await this.initialize();
       }
@@ -89,68 +119,38 @@ class INPIScraper {
 
       // Aller à la page de recherche
       await this.page.goto(searchUrl, { waitUntil: 'networkidle2', timeout: 30000 });
-      
+
       // Attendre que les résultats se chargent
       await this.page.waitForSelector('.search-results, .no-results', { timeout: 10000 });
+      */
 
-      // Vérifier s'il y a des résultats
+      /* CODE RÉEL COMMENTÉ
       const noResults = await this.page.$('.no-results');
       if (noResults) {
         logger.info('Aucun résultat trouvé');
         return { companies: [], totalResults: 0 };
       }
 
-      // Obtenir le nombre total de résultats
-      try {
-        const totalElement = await this.page.$('.results-count');
-        if (totalElement) {
-          const totalText = await this.page.evaluate(el => el.textContent, totalElement);
-          totalResults = parseInt(totalText.match(/\d+/)?.[0] || '0');
-        }
-      } catch (error) {
-        logger.warn('Impossible de récupérer le nombre total de résultats');
+      const totalElement = await this.page.$('.results-count');
+      if (totalElement) {
+        const totalText = await this.page.evaluate(el => el.textContent, totalElement);
+        totalResults = parseInt(totalText.match(/\d+/)?.[0] || '0');
       }
 
-      if (onProgress) {
-        onProgress({
-          status: `${totalResults} entreprises trouvées, extraction en cours...`,
-          progress: 10,
-          foundResults: totalResults,
-          processedResults: 0
-        });
-      }
-
-      // Scraper toutes les pages
       while (true) {
         logger.info(`Scraping de la page ${currentPage}`);
-
-        // Extraire les données de la page courante
         const pageCompanies = await this.extractCompaniesFromPage();
         companies.push(...pageCompanies);
 
-        if (onProgress) {
-          const progress = Math.min(90, (companies.length / Math.max(totalResults, companies.length)) * 80 + 10);
-          onProgress({
-            status: `Extraction en cours... Page ${currentPage}`,
-            progress: Math.round(progress),
-            foundResults: totalResults,
-            processedResults: companies.length
-          });
-        }
-
-        // Vérifier s'il y a une page suivante
         const nextButton = await this.page.$('.pagination .next:not(.disabled)');
-        if (!nextButton) {
-          break;
-        }
+        if (!nextButton) break;
 
-        // Aller à la page suivante
         await nextButton.click();
         await this.page.waitForSelector('.search-results', { timeout: 10000 });
         await this.delay(parseInt(process.env.SCRAPING_DELAY) || 2000);
-        
         currentPage++;
       }
+      */
 
       logger.info(`Scraping terminé: ${companies.length} entreprises extraites`);
       
